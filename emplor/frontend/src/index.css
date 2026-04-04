@@ -3,3 +3,271 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Sophisticated Light Mode - Zinc & Indigo Base */
+    --background: 210 40% 98%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    /* Brand Primary - Electric Indigo */
+    --primary: 250 84% 54%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 250 84% 95%;
+    --accent-foreground: 250 84% 54%;
+
+    --destructive: 348 83% 47%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 152 69% 31%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 224 71% 4%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 250 84% 54%;
+
+    --radius: 1rem; /* Softer, modern rounding */
+
+    /* Sidebar - Premium Dark Slate */
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 250 84% 54%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 224 71% 10%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 224 40% 12%;
+    --sidebar-ring: 250 84% 54%;
+
+    /* Premium Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(250 84% 54%) 0%, hsl(265 89% 58%) 100%);
+    --gradient-accent: linear-gradient(145deg, hsl(250 84% 95%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-hero: linear-gradient(145deg, hsl(224 71% 4%) 0%, hsl(224 71% 12%) 100%);
+
+    /* Layered, cinematic shadows */
+    --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 24px -4px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+    --shadow-card: 0 2px 10px -2px rgba(0, 0, 0, 0.04), 0 1px 4px -1px rgba(0, 0, 0, 0.02);
+    --shadow-card-hover: 0 12px 30px -8px rgba(33, 40, 54, 0.12), 0 8px 16px -6px rgba(33, 40, 54, 0.08);
+  }
+
+  .dark {
+    /* Sleek Midnight Mode */
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 224 71% 6%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 71% 6%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 250 84% 65%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 224 71% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 224 71% 12%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 224 71% 16%;
+    --accent-foreground: 250 84% 75%;
+
+    --destructive: 348 83% 55%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 152 69% 45%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 224 71% 4%;
+
+    --info: 199 89% 55%;
+    --info-foreground: 210 40% 98%;
+
+    --border: 224 40% 16%;
+    --input: 224 40% 16%;
+    --ring: 250 84% 65%;
+
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 250 84% 65%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 224 71% 10%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 224 40% 12%;
+    --sidebar-ring: 250 84% 65%;
+    
+    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    @apply font-bold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  /* Ultra-Premium Glass Cards */
+  .stat-card {
+    @apply bg-card/90 backdrop-blur-md rounded-2xl p-6 border border-border/60 transition-all duration-500 ease-out;
+    box-shadow: var(--shadow-card);
+  }
+
+  .stat-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px) scale(1.01);
+    @apply border-primary/20 bg-card;
+  }
+
+  /* Buttery Sidebar Items */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-300 font-medium;
+  }
+
+  .nav-item.active {
+    @apply bg-sidebar-accent text-sidebar-primary shadow-sm;
+  }
+
+  /* Vibrant Soft Badges */
+  .status-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide transition-colors;
+  }
+  .status-present, .status-approved {
+    @apply bg-success/15 text-success border border-success/20;
+  }
+  .status-absent, .status-rejected {
+    @apply bg-destructive/15 text-destructive border border-destructive/20;
+  }
+  .status-pending {
+    @apply bg-warning/15 text-warning border border-warning/20;
+  }
+  .status-leave {
+    @apply bg-info/15 text-info border border-info/20;
+  }
+
+  /* Clean Data Tables */
+  .data-table {
+    @apply w-full text-sm font-sans;
+  }
+  .data-table th {
+    @apply text-left font-semibold text-muted-foreground py-4 px-4 border-b border-border/80 uppercase tracking-wider text-[11px];
+  }
+  .data-table td {
+    @apply py-4 px-4 border-b border-border/40 transition-colors duration-200;
+  }
+  .data-table tr {
+    @apply transition-colors duration-300;
+  }
+  .data-table tr:hover {
+    @apply bg-muted/30;
+  }
+
+  /* Mesh Gradients */
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+  .accent-gradient {
+    background: var(--gradient-accent);
+  }
+
+  /* Overriding Shadcn UI default buttons natively via apply for extra polish */
+  .button-premium {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-primary/30 hover:-translate-y-0.5 rounded-xl font-semibold;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) ease-out forwards;
+  }
+
+  /* Modern staggred animation delays */
+  .delay-75 { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+}
+
+/* React Day Picker Custom Premium Overrides */
+.rdp {
+  --rdp-cell-size: 44px !important;
+  --rdp-accent-color: hsl(var(--primary)) !important;
+  --rdp-background-color: hsl(var(--primary) / 0.1) !important;
+  @apply mx-auto font-sans;
+}
+
+.rdp-day_selected {
+  @apply text-primary-foreground shadow-md shadow-primary/30 font-bold transition-transform hover:scale-105;
+}
+
+.rdp-day--absent {
+  @apply bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 border border-transparent hover:border-destructive/30 transition-all;
+}
+
+.rdp-day--present {
+  @apply bg-success/10 text-success font-semibold hover:bg-success/20 border border-transparent hover:border-success/30 transition-all;
+}
+
+.rdp-day--leave {
+  @apply bg-info/10 text-info font-semibold hover:bg-info/20 border border-transparent hover:border-info/30 transition-all;
+}
+
+.rdp-day--today-ring {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background font-bold text-primary;
+}
