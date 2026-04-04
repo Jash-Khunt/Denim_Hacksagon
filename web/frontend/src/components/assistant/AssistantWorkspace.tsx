@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { assistantAPI } from "@/services/assistantApi";
+import {
+  AssistantMessage,
+  AssistantThread,
+  assistantAPI,
+} from "@/services/assistantApi";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,27 +26,6 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-
-type ChatRole = "user" | "assistant";
-
-interface ChatMessage {
-  id: string;
-  role: ChatRole;
-  content: string;
-  createdAt: string;
-  sources?: string[];
-  error?: boolean;
-}
-
-interface ChatThread {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-const CHAT_STORAGE_PREFIX = "hacksagon_ai_chat_threads";
 const MAX_THREADS = 20;
 const MAX_MESSAGES = 40;
 
@@ -56,43 +39,54 @@ const starterPrompts = [
 const nowIso = () => new Date().toISOString();
 
 const createId = () =>
-  globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  globalThis.crypto?.randomUUID?.() ||
+  `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const getStorageKey = (userId?: string) => `${CHAT_STORAGE_PREFIX}:${userId || "guest"}`;
-
-const loadThreads = (storageKey: string): ChatThread[] => {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+const normalizeAnswer = (value: unknown): string => {
+  // Already a plain string
+  if (typeof value === "string") {
+    return value.trim() || "No response received from the assistant.";
   }
-};
 
-const persistThreads = (storageKey: string, threads: ChatThread[]) => {
-  localStorage.setItem(storageKey, JSON.stringify(threads.slice(0, MAX_THREADS)));
-};
-
-const normalizeAnswer = (value: unknown) => {
-  if (typeof value === "string") return value;
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    if (typeof record.response === "string") return record.response;
-    if (typeof record.answer === "string") return record.answer;
-    if (typeof record.message === "string") return record.message;
-    return JSON.stringify(record, null, 2);
+
+    // The backend always sends { answer, response } — check these first
+    for (const key of [
+      "answer",
+      "response",
+      "message",
+      "text",
+      "content",
+      "result",
+      "output",
+    ]) {
+      const candidate = record[key];
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+
+    // Recurse one level for nested shapes like { data: { answer: "..." } }
+    for (const val of Object.values(record)) {
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        const nested = normalizeAnswer(val);
+        if (nested !== "No response received from the assistant.")
+          return nested;
+      }
+    }
   }
 
+  // Never show raw JSON — just return a clean fallback
   return "No response received from the assistant.";
 };
 
 const extractSources = (payload: Record<string, unknown>) => {
-  const sourceBuckets = [payload.context_docs, payload.docs, payload.sources].flatMap((bucket) =>
-    Array.isArray(bucket) ? bucket : [],
-  );
+  const sourceBuckets = [
+    payload.context_docs,
+    payload.docs,
+    payload.sources,
+  ].flatMap((bucket) => (Array.isArray(bucket) ? bucket : []));
 
   return sourceBuckets
     .map((entry) => {
@@ -108,7 +102,9 @@ const extractSources = (payload: Record<string, unknown>) => {
         record.name,
       ];
 
-      const label = labels.find((item) => typeof item === "string" && item.trim().length > 0);
+      const label = labels.find(
+        (item) => typeof item === "string" && item.trim().length > 0,
+      );
       return label ? String(label) : null;
     })
     .filter((item): item is string => Boolean(item))
@@ -116,56 +112,116 @@ const extractSources = (payload: Record<string, unknown>) => {
 };
 
 const AssistantWorkspace = () => {
-  const { user } = useAuth();
-  const userStorageId = useMemo(
-    () => user?.id || user?.hr_id || user?.emp_id || user?.client_id || user?.email,
-    [user?.client_id, user?.email, user?.emp_id, user?.hr_id, user?.id],
-  );
-  const storageKey = useMemo(() => getStorageKey(userStorageId), [userStorageId]);
-  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const { user, isAuthenticated } = useAuth();
+  const [threads, setThreads] = useState<AssistantThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isHistoryVisible, setIsHistoryVisible] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const storedThreads = loadThreads(storageKey);
-    setThreads(storedThreads);
-    setActiveThreadId(storedThreads[0]?.id ?? null);
-  }, [storageKey]);
+    if (!isAuthenticated) {
+      setThreads([]);
+      setActiveThreadId(null);
+      setIsLoadingHistory(false);
+      return;
+    }
 
-  useEffect(() => {
-    persistThreads(storageKey, threads);
-  }, [storageKey, threads]);
+    let ignore = false;
+
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const response = await assistantAPI.getThreads();
+        if (ignore) return;
+
+        setThreads(response.threads.slice(0, MAX_THREADS));
+        setActiveThreadId((current) => {
+          if (
+            current &&
+            response.threads.some((thread) => thread.id === current)
+          ) {
+            return current;
+          }
+
+          return response.threads[0]?.id ?? null;
+        });
+        setErrorMessage(null);
+      } catch (error) {
+        if (ignore) return;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load assistant history";
+        setThreads([]);
+        setActiveThreadId(null);
+        setErrorMessage(message);
+      } finally {
+        if (!ignore) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
+
+    void loadHistory();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    isAuthenticated,
+    user?.client_id,
+    user?.email,
+    user?.emp_id,
+    user?.hr_id,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [activeThreadId, threads, isSending]);
 
-  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
+  const activeThread =
+    threads.find((thread) => thread.id === activeThreadId) ?? null;
   const activeMessages = activeThread?.messages ?? [];
   const historyCountLabel = `${threads.length} chat${threads.length === 1 ? "" : "s"}`;
 
-  const createThread = () => {
-    const nextThread: ChatThread = {
-      id: createId(),
-      title: "New conversation",
-      messages: [],
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
+  const createThread = async () => {
+    try {
+      setErrorMessage(null);
+      const response = await assistantAPI.createThread();
+      const nextThread = response.thread;
 
-    setThreads((current) => [nextThread, ...current].slice(0, MAX_THREADS));
-    setActiveThreadId(nextThread.id);
-    setErrorMessage(null);
+      setThreads((current) => [nextThread, ...current].slice(0, MAX_THREADS));
+      setActiveThreadId(nextThread.id);
+
+      return nextThread;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to create conversation";
+      setErrorMessage(message);
+      return null;
+    }
   };
 
-  const updateThread = (threadId: string, updater: (thread: ChatThread) => ChatThread) => {
+  const updateThread = (
+    threadId: string,
+    updater: (thread: AssistantThread) => AssistantThread,
+  ) => {
     setThreads((current) =>
-      current.map((thread) => (thread.id === threadId ? updater(thread) : thread)).slice(0, MAX_THREADS),
+      current
+        .map((thread) => (thread.id === threadId ? updater(thread) : thread))
+        .slice(0, MAX_THREADS),
     );
   };
 
@@ -177,20 +233,12 @@ const AssistantWorkspace = () => {
 
     let threadId = activeThreadId;
     if (!threadId) {
-      const nextThread: ChatThread = {
-        id: createId(),
-        title: trimmedQuestion.slice(0, 42),
-        messages: [],
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
-
-      threadId = nextThread.id;
-      setThreads((current) => [nextThread, ...current].slice(0, MAX_THREADS));
-      setActiveThreadId(threadId);
+      const createdThread = await createThread();
+      if (!createdThread) return;
+      threadId = createdThread.id;
     }
 
-    const userMessage: ChatMessage = {
+    const userMessage: AssistantMessage = {
       id: createId(),
       role: "user",
       content: trimmedQuestion,
@@ -201,7 +249,10 @@ const AssistantWorkspace = () => {
       const messages = [...thread.messages, userMessage].slice(-MAX_MESSAGES);
       return {
         ...thread,
-        title: thread.title === "New conversation" ? trimmedQuestion.slice(0, 42) : thread.title,
+        title:
+          thread.title === "New conversation"
+            ? trimmedQuestion.slice(0, 42)
+            : thread.title,
         messages,
         updatedAt: nowIso(),
       };
@@ -212,27 +263,38 @@ const AssistantWorkspace = () => {
 
     try {
       const response = await assistantAPI.ask(trimmedQuestion, {
+        threadId,
         returnContextDocs: true,
       });
 
-      const assistantMessage: ChatMessage = {
+      const assistantMessage: AssistantMessage = {
         id: createId(),
         role: "assistant",
         content: normalizeAnswer(response),
         createdAt: nowIso(),
-        sources: extractSources(response),
+        sources:
+          Array.isArray(response.evidence) && response.evidence.length
+            ? response.evidence
+            : extractSources(response),
       };
 
       updateThread(threadId, (thread) => ({
         ...thread,
+        title:
+          thread.title === "New conversation"
+            ? trimmedQuestion.slice(0, 42)
+            : thread.title,
         messages: [...thread.messages, assistantMessage].slice(-MAX_MESSAGES),
         updatedAt: nowIso(),
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to reach the assistant";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to reach the assistant";
       setErrorMessage(message);
 
-      const assistantMessage: ChatMessage = {
+      const assistantMessage: AssistantMessage = {
         id: createId(),
         role: "assistant",
         content: message,
@@ -250,15 +312,34 @@ const AssistantWorkspace = () => {
     }
   };
 
-  const removeThread = (threadId: string) => {
-    setThreads((current) => current.filter((thread) => thread.id !== threadId));
-    setActiveThreadId((current) => (current === threadId ? null : current));
+  const removeThread = async (threadId: string) => {
+    try {
+      await assistantAPI.deleteThread(threadId);
+      const remainingThreads = threads.filter((thread) => thread.id !== threadId);
+      setThreads(remainingThreads);
+      setActiveThreadId((current) => (current === threadId ? remainingThreads[0]?.id ?? null : current));
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to delete conversation";
+      setErrorMessage(message);
+    }
   };
 
-  const clearHistory = () => {
-    setThreads([]);
-    setActiveThreadId(null);
-    setErrorMessage(null);
+  const clearHistory = async () => {
+    try {
+      await assistantAPI.clearThreads();
+      setThreads([]);
+      setActiveThreadId(null);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to clear conversation history";
+      setErrorMessage(message);
+    }
   };
 
   return (

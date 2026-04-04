@@ -209,3 +209,43 @@ CREATE TABLE IF NOT EXISTS project_task_comments (
 
 CREATE INDEX IF NOT EXISTS idx_project_task_comments_task
   ON project_task_comments (task_id, created_at DESC);
+
+-- ===========================
+-- Assistant chat history
+-- ===========================
+
+CREATE TABLE IF NOT EXISTS assistant_threads (
+  thread_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_role VARCHAR(20) NOT NULL
+    CHECK (user_role IN ('hr', 'employee', 'client')),
+  user_id UUID NOT NULL,
+  title VARCHAR(255) NOT NULL DEFAULT 'New conversation',
+  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_threads_owner
+  ON assistant_threads (user_role, user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS assistant_questions (
+  question_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id UUID NOT NULL REFERENCES assistant_threads(thread_id) ON DELETE CASCADE,
+  user_role VARCHAR(20) NOT NULL
+    CHECK (user_role IN ('hr', 'employee', 'client')),
+  user_id UUID NOT NULL,
+  query TEXT NOT NULL,
+  response TEXT NOT NULL DEFAULT '',
+  evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+  context_docs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'answered', 'error')),
+  error_message TEXT DEFAULT NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_questions_thread
+  ON assistant_questions (thread_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_questions_owner
+  ON assistant_questions (user_role, user_id, created_at DESC);
