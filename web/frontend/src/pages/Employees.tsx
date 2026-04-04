@@ -38,12 +38,12 @@ import { toast } from "sonner";
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 const departmentColors: Record<string, string> = {
-  "Human Resources": "bg-purple-100 text-purple-800",
-  Engineering: "bg-blue-100 text-blue-800",
-  Marketing: "bg-pink-100 text-pink-800",
-  Design: "bg-orange-100 text-orange-800",
-  Sales: "bg-green-100 text-green-800",
-  Finance: "bg-yellow-100 text-yellow-800",
+  "Human Resources": "bg-[#fbe3d9] text-[#9f4a30] border border-[#f2bda9]",
+  Engineering: "bg-[#fff2ea] text-[#af5a3b] border border-[#f7cdbd]",
+  Marketing: "bg-[#ffeade] text-[#b5532f] border border-[#f7c1ad]",
+  Design: "bg-[#ffe6d7] text-[#bc5b37] border border-[#f7c2ad]",
+  Sales: "bg-[#fff5ef] text-[#a15035] border border-[#f4d2c3]",
+  Finance: "bg-[#fff8f3] text-[#a85f40] border border-[#efd6ca]",
 };
 
 const Employees = () => {
@@ -264,7 +264,7 @@ const Employees = () => {
                   {employee.department && (
                     <div className="flex gap-2 flex-wrap mb-4">
                       <Badge
-                        className={departmentColors[employee.department] || "bg-gray-100 text-gray-800"}
+                        className={departmentColors[employee.department] || "bg-[#fff5ef] text-[#9f5d42] border border-[#efd9ce]"}
                         variant="secondary"
                       >
                         {employee.department}
@@ -319,7 +319,7 @@ const Employees = () => {
                   <h3 className="text-xl font-semibold">{selectedEmployee.name}</h3>
                   {selectedEmployee.department && (
                     <Badge
-                      className={departmentColors[selectedEmployee.department] || "bg-gray-100 text-gray-800"}
+                      className={departmentColors[selectedEmployee.department] || "bg-[#fff5ef] text-[#9f5d42] border border-[#efd9ce]"}
                       variant="secondary"
                     >
                       {selectedEmployee.department}

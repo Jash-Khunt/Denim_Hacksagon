@@ -12,16 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { HeroDitheringBackground } from "@/components/ui/hero-dithering-card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowRight, Upload, Eye, EyeOff } from "lucide-react";
-import { UserRole } from "@/types";
+import { Loader2, ArrowRight, Upload, Eye, EyeOff, Sparkles } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -144,35 +137,44 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="relative min-h-screen flex overflow-hidden">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 hero-gradient p-12 flex-col justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <img className="w-12 h-12" src="logo.png" alt="" />
-            <div>
-              <h1 className="text-3xl font-bold text-primary-foreground">
-                Emplor
-              </h1>
+      <div className="relative hidden overflow-hidden lg:flex lg:w-1/2 p-12 bg-black [mask-image:linear-gradient(to_right,black_0%,black_86%,transparent_100%)]">
+        <HeroDitheringBackground className="absolute inset-0" colorFront="#ff7a2f" />
+        <div className="absolute inset-0 bg-black/20" />
+
+        <div className="relative z-10 flex w-full flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <img
+                className="h-[72px] w-[72px] shrink-0 object-contain"
+                src="logo1Invert.png"
+                alt="Clautzel logo"
+              />
+              <div>
+                <h1 className="text-6xl font-bold text-primary-foreground">
+                  Clautzel
+                </h1>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-6">
-          <h2 className="text-4xl font-bold text-primary-foreground leading-tight">
-            Every workday,
-            <br />
-            <span className="text-accent">perfectly aligned.</span>
-          </h2>
-          <p className="text-lg text-primary-foreground/70 max-w-md">
-            Streamline your HR operations with our comprehensive management
-            system. From attendance to payroll, we've got you covered.
+          <div className="space-y-6">
+            <h2 className="text-4xl font-bold text-primary-foreground leading-tight">
+              Every workday,
+              <br />
+              <span className="text -orange-100">perfectly aligned.</span>
+            </h2>
+            <p className="max-w-md font-medium text-lg text-orange-50/80">
+              Streamline your HR operations with our comprehensive management
+              system. From attendance to payroll, all automated.
+            </p>
+          </div>
+
+          <p className="text-sm text-white font-medium">
+            © 2026 Emplor. All rights reserved.
           </p>
         </div>
-
-        <p className="text-sm text-primary-foreground/40">
-          © 2026 Emplor. All rights reserved.
-        </p>
       </div>
 
       {/* Right Panel - Auth Forms */}
@@ -180,7 +182,9 @@ const Auth = () => {
         <div className="w-full max-w-md my-4">
           <div className="lg:hidden mb-6 md:mb-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <img className="h-12 w-12" src="logo.png" alt="" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 ring-1 ring-primary/30">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
             </div>
             <h1 className="text-2xl font-bold">Emplor</h1>
           </div>
@@ -448,6 +452,11 @@ const Auth = () => {
           </Tabs>
         </div>
       </div>
+
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 z-20 hidden w-40 -translate-x-1/2 lg:block">
+        <div className="h-full w-full bg-gradient-to-r from-black/55 via-black/16 to-transparent blur-2xl" />
+      </div>
+
     </div>
   );
 };
