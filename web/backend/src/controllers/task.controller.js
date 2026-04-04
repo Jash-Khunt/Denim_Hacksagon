@@ -213,7 +213,6 @@ export const updateTask = async (req, res) => {
         RETURNING *`,
         [taskId, status || null],
       );
-
       return res.status(200).json({ task: result.rows[0] });
     }
 
@@ -273,7 +272,6 @@ export const updateTask = async (req, res) => {
         hasAssigneeField,
       ],
     );
-
     res.status(200).json({ task: result.rows[0] });
   } catch (error) {
     console.error("Error in updateTask:", error.message);

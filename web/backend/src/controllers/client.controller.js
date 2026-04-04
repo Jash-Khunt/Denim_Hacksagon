@@ -1,5 +1,4 @@
 import { pool } from "../lib/db.js";
-import { createTasksFromBotOutput, parseBotTasks } from "../lib/task-workflow.js";
 
 const allowedModes = new Set(["connect", "chat", "meeting"]);
 
@@ -138,7 +137,7 @@ export const getMyConnections = async (req, res) => {
 export const uploadProjectPdf = async (req, res) => {
   const clientId = req.user.client_id;
   const file = req.file;
-  const { project_name, overview, hr_id, bot_response } = req.body;
+  const { project_name, overview, hr_id } = req.body;
 
   if (!file) {
     return res.status(400).json({ message: "PDF file is required" });
@@ -211,29 +210,12 @@ export const uploadProjectPdf = async (req, res) => {
         ],
       );
 
-      let createdTasks = [];
-
-      if (bot_response && bot_response.trim()) {
-        const parsedTasks = parseBotTasks(bot_response);
-        createdTasks = await createTasksFromBotOutput({
-          db,
-          uploadId: result.rows[0].upload_id,
-          clientId,
-          hrId: selectedHrId,
-          createdByRole: "client",
-          rawResponse: bot_response,
-          tasks: parsedTasks,
-        });
-      }
-
       await db.query("COMMIT");
 
       res.status(201).json({
-        message: createdTasks.length
-          ? "Project PDF uploaded and tickets created successfully"
-          : "Project PDF uploaded successfully",
+        message: "Project PDF uploaded successfully",
         upload: result.rows[0],
-        tasks: createdTasks,
+        tasks: [],
       });
     } catch (error) {
       await db.query("ROLLBACK");
@@ -243,15 +225,7 @@ export const uploadProjectPdf = async (req, res) => {
     }
   } catch (error) {
     console.error("Error in uploadProjectPdf:", error.message);
-    const statusCode =
-      error.message?.includes("Tickets have already been created") ||
-      error.message?.includes("Could not parse") ||
-      error.message?.includes("No tasks found")
-        ? 400
-        : 500;
-    res
-      .status(statusCode)
-      .json({ message: error.message || "Internal Server Error" });
+    res.status(500).json({ message: error.message || "Internal Server Error" });
   }
 };
 
@@ -264,6 +238,7 @@ export const getMyProjectUploads = async (req, res) => {
         u.overview,
         u.original_name,
         u.file_path,
+        u.upload_source,
         u.processing_status,
         u.confidence_flag,
         u.bot_raw_response,

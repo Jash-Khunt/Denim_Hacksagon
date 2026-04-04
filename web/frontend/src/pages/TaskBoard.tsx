@@ -313,7 +313,7 @@ const TaskBoard = () => {
                         </Badge>
                       </div>
 
-                      <div className="mt-4 space-y-2 text-sm text-foreground/75">
+                        <div className="mt-4 space-y-2 text-sm text-foreground/75">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
                           <span className="truncate">

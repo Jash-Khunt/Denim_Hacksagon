@@ -44,7 +44,6 @@ const ClientProjects = () => {
     project_name: "",
     overview: "",
     hr_id: "",
-    bot_response: "",
   });
 
   const connectedConnections = useMemo(
@@ -137,10 +136,6 @@ const ClientProjects = () => {
     formData.append("project_name", form.project_name);
     formData.append("overview", form.overview);
     formData.append("hr_id", form.hr_id);
-    if (form.bot_response.trim()) {
-      formData.append("bot_response", form.bot_response);
-    }
-
     try {
       setIsSubmitting(true);
       const response = await clientAPI.uploadProjectPdf(formData);
@@ -150,14 +145,11 @@ const ClientProjects = () => {
         project_name: "",
         overview: "",
         hr_id: connectedConnections.length === 1 ? connectedConnections[0].hr_id || "" : "",
-        bot_response: "",
       });
 
       toast({
         title: "Project intake saved",
-        description: response.tasks?.length
-          ? `${response.tasks.length} tickets were created from the chatbot output.`
-          : "The PDF is connected to HR and ready for chatbot processing.",
+        description: "The PDF is connected to HR and ready for HR-led ticket generation.",
       });
     } catch (error: unknown) {
       toast({
@@ -193,8 +185,7 @@ const ClientProjects = () => {
                 Your approved HR connection is live, so project briefs can now move into ticket creation.
               </h1>
               <p className="max-w-xl text-muted-foreground">
-                Upload the PDF, choose the approved HR partner, and optionally
-                paste the chatbot JSON output to create delivery tickets right away.
+                Upload the PDF, choose the approved HR partner, and hand the brief off for HR-led task and Jira generation.
               </p>
             </div>
           </div>
@@ -204,8 +195,8 @@ const ClientProjects = () => {
               {[
                 "Client connection approved by HR",
                 "Project PDF linked to the right HR partner",
-                "Chatbot output converted into internal tickets",
-                "High confidence tasks auto-assign while low confidence waits for HR review",
+                "HR reviews the uploaded brief in the assistant workspace",
+                "HR creates Jira tickets and delivery tasks from the extracted work",
               ].map((step, index) => (
                 <div
                   key={step}
@@ -321,23 +312,6 @@ const ClientProjects = () => {
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bot_response">Chatbot ticket JSON</Label>
-                <Textarea
-                  id="bot_response"
-                  rows={9}
-                  placeholder='Paste the current chatbot response here if you want tickets created immediately. Example: [{"task":"Build login flow","Difficulty":"Medium","field":"Front-end","flag":"High","human_intervention":false}]'
-                  value={form.bot_response}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, bot_response: e.target.value }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  This bridges the current standalone chatbot into the web workflow until the bot moves into the dashboard.
-                </p>
-              </div>
-
               <Button type="submit" className="w-full rounded-2xl" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -378,7 +352,7 @@ const ClientProjects = () => {
                   <div>
                     <p className="font-semibold">Current chatbot bridge</p>
                     <p className="text-sm text-muted-foreground">
-                      Paste the bot response above to seed internal tickets in the HR board immediately.
+                      After upload, HR will review the brief and create tickets from the assistant workspace.
                     </p>
                   </div>
                 </div>
@@ -436,6 +410,12 @@ const ClientProjects = () => {
                         <FileText className="h-4 w-4" />
                         {project.original_name}
                       </div>
+                      {project.upload_source === "assistant" && (
+                        <div className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-primary">
+                          <Bot className="h-4 w-4" />
+                          Assistant intake
+                        </div>
+                      )}
                       {project.hr_name && (
                         <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
                           <Building2 className="h-4 w-4" />
@@ -448,15 +428,21 @@ const ClientProjects = () => {
                       </div>
                     </div>
 
-                    <a
-                      href={`${API_ROOT}/${project.file_path}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                    >
-                      Open uploaded PDF
-                      <ArrowUpRight className="h-4 w-4" />
-                    </a>
+                    {project.upload_source === "assistant" ? (
+                      <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                        Assistant-generated Jira intake
+                      </div>
+                    ) : (
+                      <a
+                        href={`${API_ROOT}/${project.file_path}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                      >
+                        Open uploaded PDF
+                        <ArrowUpRight className="h-4 w-4" />
+                      </a>
+                    )}
                   </div>
                 ))
               )}

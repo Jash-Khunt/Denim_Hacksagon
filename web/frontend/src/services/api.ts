@@ -218,6 +218,58 @@ export const taskAPI = {
   },
 };
 
+export const jiraAPI = {
+  getUploads: async () => {
+    const response = await fetch(`${API_BASE_URL}/jira/uploads`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    return handleResponse<{ uploads: ClientProjectUpload[] }>(response);
+  },
+
+  createTickets: async (payload: {
+    upload_id?: string;
+    raw_response?: string;
+    tasks?: Array<Record<string, unknown>>;
+    project_name?: string | null;
+    overview?: string | null;
+    hr_id?: string | null;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/jira/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    return handleResponse<{
+      message: string;
+      hr: { hr_id: string; name: string; company_name: string };
+      upload: {
+        upload_id: string;
+        project_name?: string | null;
+        processing_status: string;
+      };
+      workflow: {
+        total: number;
+        autoAssigned: number;
+        needsReview: number;
+        tasks: ProjectTask[];
+      };
+      sprintStatus: string;
+      results: Array<{
+        task_key?: string;
+        title: string;
+        key: string;
+        url: string;
+        assignmentStatus?: string;
+      }>;
+      errors?: Array<{ task_key?: string; title: string; error: string | string[] }>;
+    }>(response);
+  },
+};
+
 // ==================== PROFILE API ====================
 export const profileAPI = {
   getProfile: async (id: string) => {

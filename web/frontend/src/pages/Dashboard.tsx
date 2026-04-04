@@ -2,14 +2,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import AssistantWorkspace from "@/components/assistant/AssistantWorkspace";
 import {
-  LayoutList,
-  Sparkles,
-  Zap,
   Upload,
   Handshake,
   FileText,
   KanbanSquare,
-  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -108,12 +104,11 @@ const Dashboard = () => {
           <Card className="border-border/60 bg-card/95">
             <CardContent className="p-6">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                <Bot className="h-5 w-5 text-primary" />
+                <KanbanSquare className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold">AI Ticket Pipeline</h3>
+              <h3 className="text-lg font-semibold">HR-Owned Ticketing</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                The chatbot-to-ticket board integration can slot into this
-                frontend next without changing the client flow.
+                Clients upload PDFs here. HR reviews the brief, generates Jira tickets, and routes the work into the delivery board.
               </p>
             </CardContent>
           </Card>
