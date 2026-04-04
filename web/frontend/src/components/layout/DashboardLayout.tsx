@@ -16,6 +16,9 @@ import {
 const DashboardLayout = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const displayCompany = user?.companyName || "Clautzel";
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const displayInitial = user?.firstName?.charAt(0) || user?.email?.charAt(0) || "U";
 
   // 1. Handle Loading
   if (isLoading) {
@@ -94,7 +97,7 @@ const DashboardLayout = () => {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2 font-bold text-xl text-primary">
             {/* You can put an <img> tag here for user.logo if available */}
-            <span>{user?.company_name || "Clautzel"}</span>
+            <span>{displayCompany}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 px-1">
             {user?.role === "hr" ? "Administrator" : "Employee Portal"}
@@ -123,10 +126,10 @@ const DashboardLayout = () => {
         <div className="p-4 border-t border-sidebar-border bg-sidebar/70">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-              {user?.name?.charAt(0)}
+              {displayInitial}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-sm font-medium truncate">{displayName || "User"}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {user?.email}
               </p>
