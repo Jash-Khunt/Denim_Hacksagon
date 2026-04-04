@@ -518,7 +518,7 @@ const AssistantWorkspace = () => {
           <button
             type="button"
             aria-label="Close history"
-            className={`absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden ${isHistoryVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+            className={`absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300 ${isHistoryVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
             onClick={() => setIsHistoryVisible(false)}
           />
 
