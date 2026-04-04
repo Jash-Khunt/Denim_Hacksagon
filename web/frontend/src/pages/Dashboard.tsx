@@ -1,16 +1,11 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import AssistantWorkspace from "@/components/assistant/AssistantWorkspace";
-import {
-  LayoutList,
-  Sparkles,
-  Zap,
-  Upload,
-  Handshake,
-  FileText,
-  KanbanSquare,
-  Bot,
-} from "lucide-react";
+import { CircularProgressCard } from "@/components/ui/circular-progress-card";
+import { taskAPI } from "@/services/api";
+import { ProjectTask } from "@/types";
+import { Upload, Handshake, FileText, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -18,6 +13,23 @@ const Dashboard = () => {
   const { user } = useAuth();
   const isHr = user?.role === "hr";
   const isClient = user?.role === "client";
+
+  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+
+  useEffect(() => {
+    taskAPI
+      .getTasks()
+      .then((res) => setTasks(res.tasks || []))
+      .catch(console.error);
+  }, []);
+
+  const completedTasksCount = tasks.filter((t) => t.status === "done").length;
+  const goalValue = tasks.length > 0 ? tasks.length : 1;
+  const tasksCompletedToday = tasks.filter(
+    (t) =>
+      t.status === "done" &&
+      new Date(t.updated_at).toDateString() === new Date().toDateString(),
+  ).length;
 
   if (isClient) {
     return (
@@ -78,7 +90,16 @@ const Dashboard = () => {
           </div>
         </section>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <CircularProgressCard
+            className="w-full max-w-none border-border/60 bg-card/95"
+            title="Project Completion"
+            description="Task delivery across all projects"
+            currentValue={completedTasksCount}
+            goalValue={goalValue}
+            progressColor="hsl(var(--primary))"
+          />
+
           <Card className="border-border/60 bg-card/95">
             <CardContent className="p-6">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
@@ -108,12 +129,12 @@ const Dashboard = () => {
           <Card className="border-border/60 bg-card/95">
             <CardContent className="p-6">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                <Bot className="h-5 w-5 text-primary" />
+                <KanbanSquare className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold">AI Ticket Pipeline</h3>
+              <h3 className="text-lg font-semibold">HR-Owned Ticketing</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                The chatbot-to-ticket board integration can slot into this
-                frontend next without changing the client flow.
+                Clients upload PDFs here. HR reviews the brief, generates Jira
+                tickets, and routes the work into the delivery board.
               </p>
             </CardContent>
           </Card>
@@ -128,27 +149,51 @@ const Dashboard = () => {
         <AssistantWorkspace />
 
         <div className="space-y-6">
-          <Card className="border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card">
-            <CardContent className="flex min-h-[250px] flex-col items-center justify-center text-center">
-              <div className="p-5 rounded-full bg-primary/5 mb-6">
-                <KanbanSquare className="w-12 h-12 text-primary/40" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground/80 mb-2">
-                {isHr ? "Project Task Board" : "My Tasks"}
-              </h3>
-              <p className="text-muted-foreground max-w-sm mb-6 px-4">
-                {isHr
-                  ? "Open the live task board to assign extracted tickets, update due dates, and move work across delivery stages."
-                  : "Open the live board to review your assigned tickets and push status updates back to HR."}
-              </p>
-              <Button asChild variant="outline" className="rounded-2xl">
-                <Link to="/tickets">
-                  <KanbanSquare className="mr-2 h-4 w-4" />
-                  Open Task Board
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <CircularProgressCard
+            className="w-full max-w-none border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card"
+            title="Ticket Progress"
+            description="Overall completed vs. total tasks"
+            currentValue={completedTasksCount}
+            goalValue={goalValue}
+            progressColor="hsl(var(--primary))"
+            currency=""
+          />
+
+          {isHr ? (
+            <Card className="border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card">
+              <CardContent className="flex flex-col items-center justify-center p-6 text-center py-8">
+                <h3 className="text-4xl font-bold text-primary">
+                  {tasksCompletedToday}
+                </h3>
+                <p className="text-sm font-medium text-muted-foreground mt-2 uppercase tracking-[0.15em]">
+                  Tasks Completed Today
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {!isHr ? (
+            <Card className="border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card flex-1 min-h-[250px]">
+              <CardContent className="flex min-h-[250px] flex-col items-center justify-center text-center">
+                <div className="p-5 rounded-full bg-primary/5 mb-6">
+                  <KanbanSquare className="w-12 h-12 text-primary/40" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground/80 mb-2">
+                  My Tasks
+                </h3>
+                <p className="text-muted-foreground max-w-sm mb-6 px-4">
+                  Open the live board to review your assigned tickets and push
+                  status updates back to HR.
+                </p>
+                <Button asChild variant="outline" className="rounded-2xl">
+                  <Link to="/tickets">
+                    <KanbanSquare className="mr-2 h-4 w-4" />
+                    Open Task Board
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

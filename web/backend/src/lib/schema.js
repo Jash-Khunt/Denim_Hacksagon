@@ -4,6 +4,13 @@ const workflowSchemaSql = `
   CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
   ALTER TABLE client_project_uploads
+  DROP CONSTRAINT IF EXISTS client_project_uploads_upload_source_check;
+
+  ALTER TABLE client_project_uploads
+  ADD CONSTRAINT client_project_uploads_upload_source_check
+    CHECK (upload_source IN ('local', 'assistant'));
+
+  ALTER TABLE client_project_uploads
   ADD COLUMN IF NOT EXISTS bot_raw_response TEXT;
 
   ALTER TABLE client_project_uploads

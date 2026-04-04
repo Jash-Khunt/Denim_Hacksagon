@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS client_project_uploads (
   project_name VARCHAR(255),
   overview TEXT,
   upload_source VARCHAR(20) NOT NULL DEFAULT 'local'
-    CHECK (upload_source IN ('local')),
+    CHECK (upload_source IN ('local', 'assistant')),
   processing_status VARCHAR(30) NOT NULL DEFAULT 'uploaded'
     CHECK (
       processing_status IN (

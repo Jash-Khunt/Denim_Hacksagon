@@ -149,6 +149,7 @@ export interface ClientProjectUpload {
   overview?: string | null;
   original_name: string;
   file_path: string;
+  upload_source?: "local" | "assistant" | string;
   processing_status: string;
   confidence_flag?: string | null;
   bot_raw_response?: string | null;
@@ -157,6 +158,9 @@ export interface ClientProjectUpload {
   hr_id?: string | null;
   hr_name?: string | null;
   hr_company_name?: string | null;
+  client_id?: string | null;
+  client_name?: string | null;
+  client_company_name?: string | null;
   task_count?: number;
 }
 
