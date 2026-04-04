@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
@@ -14,9 +16,38 @@ import {
   KanbanSquare,
 } from "lucide-react";
 
+const ASSISTANT_FULLSCREEN_EVENT = "assistant-fullscreen-change";
+
 const DashboardLayout = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const [isAssistantFullscreen, setIsAssistantFullscreen] = useState(
+    () => document.body.dataset.assistantFullscreen === "true",
+  );
+
+  useEffect(() => {
+    const handleAssistantFullscreenChange = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ isFullscreen?: boolean }>
+      ).detail;
+      setIsAssistantFullscreen(Boolean(detail?.isFullscreen));
+    };
+
+    window.addEventListener(
+      ASSISTANT_FULLSCREEN_EVENT,
+      handleAssistantFullscreenChange,
+    );
+    setIsAssistantFullscreen(
+      document.body.dataset.assistantFullscreen === "true",
+    );
+
+    return () => {
+      window.removeEventListener(
+        ASSISTANT_FULLSCREEN_EVENT,
+        handleAssistantFullscreenChange,
+      );
+    };
+  }, []);
 
   // 1. Handle Loading
   if (isLoading) {
@@ -115,7 +146,14 @@ const DashboardLayout = () => {
         <div className="absolute top-24 right-0 h-80 w-80 rounded-full bg-accent/60 blur-3xl" />
       </div>
       {/* SIDEBAR */}
-      <aside className="hidden lg:flex flex-col w-64 bg-sidebar/90 backdrop-blur-sm border-r border-sidebar-border fixed h-full z-10">
+      <aside
+        className={cn(
+          "fixed z-10 hidden h-full w-64 flex-col border-r border-sidebar-border bg-sidebar/90 backdrop-blur-sm transition-transform duration-500 ease-out lg:flex",
+          isAssistantFullscreen
+            ? "pointer-events-none -translate-x-full"
+            : "translate-x-0",
+        )}
+      >
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2 font-bold text-xl text-primary">
             {/* You can put an <img> tag here for user.logo if available */}
@@ -177,7 +215,12 @@ const DashboardLayout = () => {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 lg:ml-64 min-h-screen transition-all duration-300">
+      <main
+        className={cn(
+          "min-h-screen flex-1 transition-all duration-500 ease-out",
+          isAssistantFullscreen ? "lg:ml-0" : "lg:ml-64",
+        )}
+      >
         {/* Mobile Header (optional, simplified) */}
         <div className="lg:hidden p-4 bg-card/90 backdrop-blur-sm border-b border-border/70 flex justify-between items-center sticky top-0 z-20">
           <span className="font-bold">Clautzel</span>

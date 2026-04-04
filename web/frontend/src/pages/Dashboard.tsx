@@ -7,7 +7,10 @@ import { taskAPI } from "@/services/api";
 import { ProjectTask } from "@/types";
 import { Upload, Handshake, FileText, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+
+const ASSISTANT_FULLSCREEN_EVENT = "assistant-fullscreen-change";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -15,6 +18,7 @@ const Dashboard = () => {
   const isClient = user?.role === "client";
 
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [isAssistantFullscreen, setIsAssistantFullscreen] = useState(false);
 
   useEffect(() => {
     taskAPI
@@ -22,6 +26,39 @@ const Dashboard = () => {
       .then((res) => setTasks(res.tasks || []))
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    document.body.dataset.assistantFullscreen = isAssistantFullscreen
+      ? "true"
+      : "false";
+    window.dispatchEvent(
+      new CustomEvent(ASSISTANT_FULLSCREEN_EVENT, {
+        detail: { isFullscreen: isAssistantFullscreen },
+      }),
+    );
+
+    return () => {
+      delete document.body.dataset.assistantFullscreen;
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_FULLSCREEN_EVENT, {
+          detail: { isFullscreen: false },
+        }),
+      );
+    };
+  }, [isAssistantFullscreen]);
+
+  useEffect(() => {
+    if (!isAssistantFullscreen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isAssistantFullscreen]);
 
   const completedTasksCount = tasks.filter((t) => t.status === "done").length;
   const goalValue = tasks.length > 0 ? tasks.length : 1;
@@ -145,10 +182,28 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)] min-h-[760px]">
-        <AssistantWorkspace />
+      <div
+        className={cn(
+          "grid min-h-[760px] grid-cols-1 gap-6 transition-[grid-template-columns] duration-500 ease-out",
+          isAssistantFullscreen
+            ? "xl:grid-cols-1"
+            : "xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]",
+        )}
+      >
+        <AssistantWorkspace
+          isFullscreen={isAssistantFullscreen}
+          onFullscreenChange={setIsAssistantFullscreen}
+        />
 
-        <div className="space-y-6">
+        <div
+          aria-hidden={isAssistantFullscreen}
+          className={cn(
+            "space-y-6 overflow-hidden transition-[max-height,opacity,transform,filter] duration-500 ease-out",
+            isAssistantFullscreen
+              ? "pointer-events-none max-h-0 translate-y-6 opacity-0 blur-sm"
+              : "max-h-[1200px] translate-y-0 opacity-100 blur-0",
+          )}
+        >
           <CircularProgressCard
             className="w-full max-w-none border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card"
             title="Ticket Progress"

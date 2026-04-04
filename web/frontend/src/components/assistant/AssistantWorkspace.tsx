@@ -25,11 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import {
   Clock3,
   History,
   Loader2,
+  Maximize2,
   MessageSquare,
+  Minimize2,
   PanelLeft,
   PanelLeftClose,
   Plus,
@@ -127,19 +130,44 @@ const extractSources = (payload: Record<string, unknown>) => {
     .slice(0, 4);
 };
 
-const AssistantWorkspace = () => {
+type AssistantWorkspaceProps = {
+  isFullscreen?: boolean;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
+};
+
+const AssistantWorkspace = ({
+  isFullscreen: isFullscreenProp,
+  onFullscreenChange,
+}: AssistantWorkspaceProps) => {
   const { user, isAuthenticated } = useAuth();
   const [threads, setThreads] = useState<AssistantThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isHistoryVisible, setIsHistoryVisible] = useState(true);
+  const [localIsFullscreen, setLocalIsFullscreen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const historyVisibilityBeforeFullscreenRef = useRef<boolean | null>(null);
+
+  const isFullscreen = isFullscreenProp ?? localIsFullscreen;
+  const setIsFullscreen = useCallback(
+    (nextValue: boolean | ((current: boolean) => boolean)) => {
+      const resolvedValue =
+        typeof nextValue === "function" ? nextValue(isFullscreen) : nextValue;
+
+      if (isFullscreenProp === undefined) {
+        setLocalIsFullscreen(resolvedValue);
+      }
+
+      onFullscreenChange?.(resolvedValue);
+    },
+    [isFullscreen, isFullscreenProp, onFullscreenChange],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -216,6 +244,26 @@ const AssistantWorkspace = () => {
     activeMessages.length === 0 &&
     activeThread?.title === "New conversation";
   const historyCountLabel = `${threads.length} chat${threads.length === 1 ? "" : "s"}`;
+  const isHistoryPanelVisible = isHistoryVisible && !isFullscreen;
+
+  useEffect(() => {
+    if (isFullscreen) {
+      if (historyVisibilityBeforeFullscreenRef.current === null) {
+        historyVisibilityBeforeFullscreenRef.current = isHistoryVisible;
+      }
+
+      if (isHistoryVisible) {
+        setIsHistoryVisible(false);
+      }
+
+      return;
+    }
+
+    if (historyVisibilityBeforeFullscreenRef.current !== null) {
+      setIsHistoryVisible(historyVisibilityBeforeFullscreenRef.current);
+      historyVisibilityBeforeFullscreenRef.current = null;
+    }
+  }, [isFullscreen, isHistoryVisible]);
 
   const createThread = useCallback(async () => {
     try {
@@ -448,6 +496,18 @@ const AssistantWorkspace = () => {
       if (key === "l") {
         event.preventDefault();
         setIsHistoryVisible((current) => !current);
+        return;
+      }
+
+      if (key === "f") {
+        event.preventDefault();
+        setIsFullscreen((current) => !current);
+        return;
+      }
+
+      if (key === "escape" && isFullscreen) {
+        event.preventDefault();
+        setIsFullscreen(false);
       }
     };
 
@@ -455,24 +515,56 @@ const AssistantWorkspace = () => {
     return () => {
       globalThis.removeEventListener("keydown", handleKeydown);
     };
-  }, [createThread, isActiveThreadFresh, isAuthenticated, isSending]);
+  }, [
+    createThread,
+    isActiveThreadFresh,
+    isAuthenticated,
+    isFullscreen,
+    isSending,
+    setIsFullscreen,
+  ]);
 
   return (
     <>
-      <Card className="h-[760px] overflow-hidden border-border/70 bg-card/90 shadow-card backdrop-blur-md">
+      <div
+        className={cn(
+          "fixed inset-0 z-30 bg-background/50 backdrop-blur-sm transition-opacity duration-500 ease-out",
+          isFullscreen ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+
+      <Card
+        className={cn(
+          "overflow-hidden border-border/70 bg-card/90 backdrop-blur-md transition-[height,box-shadow,border-radius,transform] duration-500 ease-out motion-safe:transform-gpu",
+          isFullscreen
+            ? "fixed inset-4 z-40 h-[calc(100vh-2rem)] rounded-[2rem] shadow-[0_36px_120px_-45px_rgba(15,23,42,0.7)]"
+            : "relative h-[760px] shadow-card",
+        )}
+      >
         <CardContent className="relative h-full p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {!isFullscreen ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsHistoryVisible((current) => !current)}
+                    className="gap-2 text-muted-foreground"
+                  >
+                    {isHistoryVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+                    {isHistoryVisible ? "Hide History" : "Show History"}
+                  </Button>
+                ) : null}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsHistoryVisible((current) => !current)}
+                  onClick={() => setIsFullscreen((current) => !current)}
                   className="gap-2 text-muted-foreground"
                 >
-                  {isHistoryVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-                  {isHistoryVisible ? "Hide History" : "Show History"}
+                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 </Button>
               </div>
             </div>
@@ -634,12 +726,20 @@ const AssistantWorkspace = () => {
           <button
             type="button"
             aria-label="Close history"
-            className={`absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300 ${isHistoryVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+            className={cn(
+              "absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300",
+              isHistoryPanelVisible ? "opacity-100" : "pointer-events-none opacity-0",
+            )}
             onClick={() => setIsHistoryVisible(false)}
           />
 
           <aside
-            className={`absolute inset-y-0 left-0 z-30 flex h-full min-h-0 w-[280px] flex-col border-r border-border/70 bg-card/95 shadow-xl backdrop-blur-md transition-transform duration-300 ease-out sm:w-[320px] lg:w-[340px] ${isHistoryVisible ? "translate-x-0" : "-translate-x-full pointer-events-none"}`}
+            className={cn(
+              "absolute inset-y-0 left-0 z-30 flex h-full min-h-0 w-[280px] flex-col border-r border-border/70 bg-card/95 shadow-xl backdrop-blur-md transition-transform duration-300 ease-out sm:w-[320px] lg:w-[340px]",
+              isHistoryPanelVisible
+                ? "translate-x-0"
+                : "-translate-x-full pointer-events-none",
+            )}
           >
             <div className="border-b border-border/70 bg-muted/30 px-5 py-4">
               <div className="flex items-start justify-between gap-4">
@@ -777,7 +877,7 @@ const AssistantWorkspace = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingConfirmation?.type === "delete-thread"
-                ? `This will permanently remove \"${pendingConfirmation.threadTitle}\".`
+                ? `This will permanently remove "${pendingConfirmation.threadTitle}".`
                 : `This will permanently remove ${pendingConfirmation?.count ?? 0} conversation${(pendingConfirmation?.count ?? 0) === 1 ? "" : "s"}.`}
               {" "}
               This action cannot be undone.
