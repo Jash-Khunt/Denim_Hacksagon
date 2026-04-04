@@ -28,12 +28,13 @@ app.use(
       "http://localhost:8081",
       "http://localhost:5173",
       "http://localhost:8080",
+      "http://localhost:3000",
     ],
     credentials: true,
   }),
 );
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 app.use("/api/v1/auth/users", authRoutes);
 app.use("/api/v1/hr", employeeRoutes);

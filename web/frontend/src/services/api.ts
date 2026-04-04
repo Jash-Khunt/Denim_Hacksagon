@@ -11,7 +11,7 @@ import {
 } from "@/types";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
+  import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {

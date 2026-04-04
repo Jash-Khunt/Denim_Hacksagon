@@ -402,10 +402,10 @@ const AssistantWorkspace = () => {
                         ? "max-w-[min(38rem,100%)]"
                         : "max-w-[min(52rem,100%)]"
                         } ${isUser
-                        ? "rounded-tr-md bg-primary text-primary-foreground"
-                        : message.error
-                          ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
-                          : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
+                          ? "rounded-tr-md bg-primary text-primary-foreground"
+                          : message.error
+                            ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
+                            : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
                         }`}
                     >
                       {isUser ? (
@@ -598,7 +598,7 @@ const AssistantWorkspace = () => {
                                 setActiveThreadId(thread.id);
                               }
                             }}
-                            className={`group w-full rounded-2xl border p-4 text-left transition-all duration-200 ${isActive
+                            className={`group w-[239px] rounded-2xl border p-4 text-left transition-all duration-200 sm:w-[279px] lg:w-[299px] ${isActive
                               ? "border-primary/30 bg-primary/10 shadow-sm"
                               : "border-border/60 bg-background/70 hover:border-primary/20 hover:bg-accent/40"
                               }`}
