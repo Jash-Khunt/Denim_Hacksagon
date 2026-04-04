@@ -1,6 +1,6 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent } from '@/components/ui/card';
-import AssistantWorkspace from '@/components/assistant/AssistantWorkspace';
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent } from "@/components/ui/card";
+import AssistantWorkspace from "@/components/assistant/AssistantWorkspace";
 import {
   LayoutList,
   Sparkles,
@@ -9,14 +9,15 @@ import {
   Handshake,
   FileText,
   KanbanSquare,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+  Bot,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const isHr = user?.role === 'hr';
-  const isClient = user?.role === 'client';
+  const isHr = user?.role === "hr";
+  const isClient = user?.role === "client";
 
   if (isClient) {
     return (
@@ -30,7 +31,8 @@ const Dashboard = () => {
                   Client Workspace
                 </p>
                 <h1 className="max-w-2xl text-4xl font-bold leading-tight">
-                  Upload a project brief, connect with HR, and prepare chatbot-driven Jira work inside the Clautzel flow.
+                  Upload a project brief, connect with HR, and prepare
+                  chatbot-driven Jira work inside the Clautzel flow.
                 </h1>
                 <p className="max-w-xl text-muted-foreground">
                   This view keeps the same warm Clautzel language while opening
@@ -56,10 +58,10 @@ const Dashboard = () => {
             <div className="border-t border-border/60 bg-gradient-to-br from-primary/10 via-accent/40 to-background px-8 py-9 lg:border-l lg:border-t-0">
               <div className="space-y-4">
                 {[
-                  'Upload the project overview PDF',
-                  'Let the chatbot extract tasks',
-                  'Create Jira tickets from extracted work',
-                  'Send high-confidence tasks forward and low-confidence tasks to HR review',
+                  "Upload the project overview PDF",
+                  "Let the chatbot extract tasks",
+                  "Create Jira tickets from extracted work",
+                  "Send high-confidence tasks forward and low-confidence tasks to HR review",
                 ].map((step, index) => (
                   <div
                     key={step}
@@ -97,8 +99,8 @@ const Dashboard = () => {
               </div>
               <h3 className="text-lg font-semibold">HR Matching</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Compare HR profiles, team details, and start the right next step:
-                connect, chat, or meeting.
+                Compare HR profiles, team details, and start the right next
+                step: connect, chat, or meeting.
               </p>
             </CardContent>
           </Card>
@@ -131,14 +133,17 @@ const Dashboard = () => {
               <div className="border-b border-border/70 bg-muted/30 px-5 py-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">AI Workflow</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    AI Workflow
+                  </h3>
                 </div>
               </div>
               <div className="space-y-4 p-5">
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                   <p className="text-sm font-semibold">Connected pipeline</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    The assistant is wired for a Pathway RAG backend and will answer from the indexed client document set.
+                    The assistant is wired for a Pathway RAG backend and will
+                    answer from the indexed client document set.
                   </p>
                 </div>
                 <div className="grid gap-3">
@@ -147,7 +152,10 @@ const Dashboard = () => {
                     "Task extraction and summaries",
                     "Conversation history in browser storage",
                   ].map((item) => (
-                    <div key={item} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                    <div
+                      key={item}
+                      className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 px-4 py-3"
+                    >
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <Zap className="h-4 w-4" />
                       </div>
@@ -165,13 +173,12 @@ const Dashboard = () => {
                 <KanbanSquare className="w-12 h-12 text-primary/40" />
               </div>
               <h3 className="text-xl font-semibold text-foreground/80 mb-2">
-                {isHr ? 'Project Task Board' : 'My Tasks'}
+                {isHr ? "Project Task Board" : "My Tasks"}
               </h3>
               <p className="text-muted-foreground max-w-sm mb-6 px-4">
                 {isHr
-                  ? 'Open the live task board to assign extracted tickets, update due dates, and move work across delivery stages.'
-                  : 'Open the live board to review your assigned tickets and push status updates back to HR.'
-                }
+                  ? "Open the live task board to assign extracted tickets, update due dates, and move work across delivery stages."
+                  : "Open the live board to review your assigned tickets and push status updates back to HR."}
               </p>
               <Button asChild variant="outline" className="rounded-2xl">
                 <Link to="/tickets">
