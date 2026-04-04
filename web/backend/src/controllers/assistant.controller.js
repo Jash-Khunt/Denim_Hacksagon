@@ -18,11 +18,18 @@ const PATHWAY_CLIENT_DIR = path.resolve(
   CONTROLLER_DIR,
   "../../../../rag_model/pathway/client",
 );
+const PATHWAY_DATA_DIR = path.resolve(
+  CONTROLLER_DIR,
+  "../../../../rag_model/pathway/data",
+);
 
 const PATHWAY_ENDPOINTS = [
   {
     path: "/v1/pw_ai_answer",
-    buildPayload: (prompt) => ({ prompt }),
+    buildPayload: (prompt, options) => ({
+      prompt,
+      return_context_docs: options.returnContextDocs ?? true,
+    }),
   },
   {
     path: "/v2/answer",
@@ -185,6 +192,12 @@ const resolvePublicDocumentUrl = (sourcePath) => {
     )}`;
   }
 
+  if (normalizedPath.startsWith("data/")) {
+    return `/assistant-data/${toPublicPath(
+      normalizedPath.slice("data/".length),
+    )}`;
+  }
+
   const uploadsMarker = "/uploads/";
   const uploadsIndex = normalizedPath.lastIndexOf(uploadsMarker);
   if (uploadsIndex >= 0) {
@@ -219,6 +232,15 @@ const resolvePublicDocumentUrl = (sourcePath) => {
     return pathwayAbsoluteMatch;
   }
 
+  const pathwayDataAbsoluteMatch = resolveRelativePublicPath(
+    normalizedPath,
+    PATHWAY_DATA_DIR,
+    "/assistant-data",
+  );
+  if (pathwayDataAbsoluteMatch) {
+    return pathwayDataAbsoluteMatch;
+  }
+
   const basename = path.posix.basename(normalizedPath);
   if (!basename) {
     return "";
@@ -230,6 +252,10 @@ const resolvePublicDocumentUrl = (sourcePath) => {
 
   if (fs.existsSync(path.join(PATHWAY_CLIENT_DIR, basename))) {
     return `/assistant-documents/${encodeURIComponent(basename)}`;
+  }
+
+  if (fs.existsSync(path.join(PATHWAY_DATA_DIR, basename))) {
+    return `/assistant-data/${encodeURIComponent(basename)}`;
   }
 
   return "";

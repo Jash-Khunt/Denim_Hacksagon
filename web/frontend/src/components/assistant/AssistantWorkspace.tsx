@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Send,
   Trash2,
+  FileText,
 } from "lucide-react";
 const MAX_THREADS = 20;
 const MAX_MESSAGES = 40;
@@ -211,6 +212,12 @@ const resolvePreviewUrl = (doc: AssistantContextDoc | null) => {
   if (normalizedPath.startsWith("client/")) {
     return `${API_ROOT}/assistant-documents/${toPathSegments(
       normalizedPath.slice("client/".length),
+    )}`;
+  }
+
+  if (normalizedPath.startsWith("data/")) {
+    return `${API_ROOT}/assistant-data/${toPathSegments(
+      normalizedPath.slice("data/".length),
     )}`;
   }
 
@@ -1100,17 +1107,6 @@ const AssistantWorkspace = ({
                       </div>
                     )}
                   </div>
-
-                  {selectedPreviewDoc?.text ? (
-                    <div className="max-h-44 shrink-0 overflow-y-auto border-t border-border/70 bg-muted/15 px-5 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Retrieved Excerpt
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                        {selectedPreviewDoc.text}
-                      </p>
-                    </div>
-                  ) : null}
                 </aside>
               ) : null}
             </div>

@@ -198,7 +198,20 @@ if question:
     st.markdown(f"""{response}""")
     with st.expander(label="Context documents"):
         st.markdown("Documents sent to LLM as context:\n")
+        shown_pdfs = set()
         for i, doc in enumerate(context_docs):
+            doc_path = doc['metadata']['path']
             st.markdown(
-                f"{i+1}. Path: {doc['metadata']['path']}\n ```\n{doc['text']}\n```"
+                f"{i+1}. Path: {doc_path}\n ```\n{doc['text']}\n```"
             )
+            if doc_path.lower().endswith('.pdf') and doc_path not in shown_pdfs:
+                shown_pdfs.add(doc_path)
+                import base64
+                import os
+                abs_doc_path = os.path.join(os.path.dirname(BASE_DIR), doc_path)
+                if os.path.exists(abs_doc_path):
+                    st.markdown(f"**Preview of {os.path.basename(doc_path)}:**")
+                    with open(abs_doc_path, "rb") as f:
+                        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)

@@ -42,6 +42,10 @@ const assistantDocumentsDir = path.resolve(
   currentDir,
   "../../../rag_model/pathway/client",
 );
+const assistantDataDir = path.resolve(
+  currentDir,
+  "../../../rag_model/pathway/data",
+);
 
 app.use("/api/v1/auth/users", authRoutes);
 app.use("/api/v1/hr", employeeRoutes);
@@ -57,6 +61,7 @@ app.use("/api/v1/assistant", assistantRoutes);
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/assistant-documents", express.static(assistantDocumentsDir));
+app.use("/assistant-data", express.static(assistantDataDir));
 
 const startServer = async () => {
   await testConnection();
