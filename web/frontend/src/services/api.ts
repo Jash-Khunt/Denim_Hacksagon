@@ -1,12 +1,22 @@
-import { User, AttendanceRecord, LeaveRequest, LeaveType } from '@/types';
+import {
+  User,
+  AttendanceRecord,
+  LeaveRequest,
+  LeaveType,
+  HrDirectoryItem,
+  ClientProjectUpload,
+} from "@/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'An error occurred');
+    const error = await response
+      .json()
+      .catch(() => ({ message: response.statusText }));
+    throw new Error(error.message || "An error occurred");
   }
   return response.json();
 }
@@ -15,18 +25,23 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export const authAPI = {
   login: async (email: string, password: string) => {
     const response = await fetch(`${API_BASE_URL}/auth/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     return handleResponse<{ user: User }>(response);
   },
 
-  signup: async (data: FormData) => {
-    const response = await fetch(`${API_BASE_URL}/auth/users/signup`, {
-      method: 'POST',
-      credentials: 'include',
+  signup: async (data: FormData, accountType: "hr" | "client" = "hr") => {
+    const endpoint =
+      accountType === "client"
+        ? `${API_BASE_URL}/auth/users/signup/client`
+        : `${API_BASE_URL}/auth/users/signup`;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
       body: data,
     });
     return handleResponse<{ user: User }>(response);
@@ -34,16 +49,16 @@ export const authAPI = {
 
   logout: async () => {
     const response = await fetch(`${API_BASE_URL}/auth/users/logout`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
     return handleResponse<{ message: string }>(response);
   },
 
   getCurrentUser: async () => {
     const response = await fetch(`${API_BASE_URL}/auth/users/me`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ user: User }>(response);
   },
@@ -53,8 +68,8 @@ export const authAPI = {
 export const employeeAPI = {
   addEmployee: async (data: FormData) => {
     const response = await fetch(`${API_BASE_URL}/hr/add`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
       body: data,
     });
     return handleResponse<{ employee: User }>(response);
@@ -62,10 +77,53 @@ export const employeeAPI = {
 
   getAllEmployees: async () => {
     const response = await fetch(`${API_BASE_URL}/hr/all`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ employees: User[] }>(response);
+  },
+};
+
+// ==================== CLIENT API ====================
+export const clientAPI = {
+  getHrDirectory: async () => {
+    const response = await fetch(`${API_BASE_URL}/client/hrs`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ hrs: HrDirectoryItem[] }>(response);
+  },
+
+  connectToHr: async (
+    hrId: string,
+    data: { mode: "connect" | "chat" | "meeting"; message?: string },
+  ) => {
+    const response = await fetch(`${API_BASE_URL}/client/connections/${hrId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ message: string }>(response);
+  },
+
+  uploadProjectPdf: async (data: FormData) => {
+    const response = await fetch(`${API_BASE_URL}/client/projects/upload`, {
+      method: "POST",
+      credentials: "include",
+      body: data,
+    });
+    return handleResponse<{ upload: ClientProjectUpload; message: string }>(
+      response,
+    );
+  },
+
+  getProjects: async () => {
+    const response = await fetch(`${API_BASE_URL}/client/projects`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ uploads: ClientProjectUpload[] }>(response);
   },
 };
 
@@ -73,17 +131,17 @@ export const employeeAPI = {
 export const profileAPI = {
   getProfile: async (id: string) => {
     const response = await fetch(`${API_BASE_URL}/up/${id}`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ user: User }>(response);
   },
 
   updateProfile: async (data: any) => {
     const response = await fetch(`${API_BASE_URL}/up/update`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(data),
     });
     return handleResponse<{ user: User }>(response);
@@ -91,8 +149,8 @@ export const profileAPI = {
 
   uploadImage: async (data: FormData) => {
     const response = await fetch(`${API_BASE_URL}/up/upload-image`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
       body: data,
     });
     return handleResponse<{ imageUrl: string }>(response);
@@ -103,24 +161,24 @@ export const profileAPI = {
 export const attendanceAPI = {
   checkIn: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/check-in`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
     return handleResponse<{ attendance: AttendanceRecord }>(response);
   },
 
   checkOut: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/check-out`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
     return handleResponse<{ attendance: AttendanceRecord }>(response);
   },
 
   getStats: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/stats`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{
       present: number;
@@ -132,29 +190,29 @@ export const attendanceAPI = {
 
   getWeeklyAttendance: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/weekly`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ attendance: AttendanceRecord[] }>(response);
   },
 
   getDailyAttendance: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/daily`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ attendance: AttendanceRecord[] }>(response);
   },
 
   getTodayStatus: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/today`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
-    return handleResponse<{ 
-      isCheckedIn: boolean; 
+    return handleResponse<{
+      isCheckedIn: boolean;
       isCheckedOut: boolean;
-      checkInTime: string | null; 
+      checkInTime: string | null;
       checkOutTime: string | null;
       record: any;
     }>(response);
@@ -163,25 +221,31 @@ export const attendanceAPI = {
   // HR endpoints
   getHREmployeesAttendance: async () => {
     const response = await fetch(`${API_BASE_URL}/attendance/hr/employees`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ employees: any[] }>(response);
   },
 
   getHREmployeeWeekly: async (empId: string) => {
-    const response = await fetch(`${API_BASE_URL}/attendance/hr/employee/${empId}/weekly`, {
-      method: 'GET',
-      credentials: 'include',
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/attendance/hr/employee/${empId}/weekly`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
     return handleResponse<{ attendance: AttendanceRecord[] }>(response);
   },
 
   getHREmployeeDaily: async (empId: string) => {
-    const response = await fetch(`${API_BASE_URL}/attendance/hr/employee/${empId}/daily`, {
-      method: 'GET',
-      credentials: 'include',
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/attendance/hr/employee/${empId}/daily`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
     return handleResponse<{ attendance: AttendanceRecord[] }>(response);
   },
 };
@@ -202,9 +266,9 @@ export const leaveAPI = {
       remarks: data.remarks,
     };
     const response = await fetch(`${API_BASE_URL}/leave/request`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(payload),
     });
     return handleResponse<{ leave: LeaveRequest }>(response);
@@ -212,25 +276,25 @@ export const leaveAPI = {
 
   getMyLeaves: async () => {
     const response = await fetch(`${API_BASE_URL}/leave/my-leaves`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ leaves: LeaveRequest[] }>(response);
   },
 
   getAllLeaves: async () => {
     const response = await fetch(`${API_BASE_URL}/leave/all`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ leaves: LeaveRequest[] }>(response);
   },
 
   approveLeave: async (id: string, comment?: string) => {
     const response = await fetch(`${API_BASE_URL}/leave/approve/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ comment }),
     });
     return handleResponse<{ leave: LeaveRequest }>(response);
@@ -238,9 +302,9 @@ export const leaveAPI = {
 
   rejectLeave: async (id: string, comment?: string) => {
     const response = await fetch(`${API_BASE_URL}/leave/reject/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ comment }),
     });
     return handleResponse<{ leave: LeaveRequest }>(response);
@@ -251,53 +315,62 @@ export const leaveAPI = {
 export const payrollAPI = {
   getMyPayroll: async () => {
     const response = await fetch(`${API_BASE_URL}/payroll/my-payroll`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ payroll: any[]; currentSalary: number }>(response);
   },
 
   getAllPayroll: async () => {
     const response = await fetch(`${API_BASE_URL}/payroll/all`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ payroll: any[] }>(response);
   },
 
   getPayrollSummary: async () => {
     const response = await fetch(`${API_BASE_URL}/payroll/summary`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     return handleResponse<{ employees: any[]; summary: any }>(response);
   },
 
   updateSalary: async (id: string, salary: number) => {
-    const response = await fetch(`${API_BASE_URL}/payroll/update-salary/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ salary }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/payroll/update-salary/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ salary }),
+      },
+    );
     return handleResponse<{ message: string }>(response);
   },
 
   processPayroll: async (data: { month: string; year: number }) => {
     const response = await fetch(`${API_BASE_URL}/payroll/process`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(data),
     });
     return handleResponse<{ message: string }>(response);
   },
 
-  payIndividual: async (data: { empId: string; amount: number; month: number; year: number; note?: string }) => {
+  payIndividual: async (data: {
+    empId: string;
+    amount: number;
+    month: number;
+    year: number;
+    note?: string;
+  }) => {
     const response = await fetch(`${API_BASE_URL}/payroll/pay-individual`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(data),
     });
     return handleResponse<{ message: string }>(response);

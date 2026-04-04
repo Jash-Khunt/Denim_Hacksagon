@@ -42,7 +42,11 @@ const Profile = () => {
   useEffect(() => {
     const loadProfile = async () => {
       if (user) {
-        const id = (user as any).hr_id || (user as any).emp_id || user.id;
+        const id =
+          (user as any).emp_id ||
+          (user as any).client_id ||
+          (user as any).hr_id ||
+          user.id;
         if (id) {
           const profile = await fetchProfile(id);
           if (profile) {
@@ -68,7 +72,11 @@ const Profile = () => {
     if (success) {
       setIsEditing(false);
       // Refresh profile
-      const id = (user as any)?.hr_id || (user as any)?.emp_id || user?.id;
+      const id =
+        (user as any)?.emp_id ||
+        (user as any)?.client_id ||
+        (user as any)?.hr_id ||
+        user?.id;
       if (id) {
         const profile = await fetchProfile(id);
         if (profile) setProfileData(profile);
@@ -88,8 +96,14 @@ const Profile = () => {
   const displayEmail = profileData?.email || user?.email || '';
   const displayPhone = profileData?.phone || user?.phone || '';
   const displayAddress = profileData?.address || user?.address || '';
-  const displayDepartment = profileData?.department || user?.department || '';
-  const displayPosition = profileData?.position || (user as any)?.position || '';
+  const displayDepartment =
+    profileData?.department || user?.department || profileData?.company_name || '';
+  const displayPosition =
+    profileData?.employee_role ||
+    profileData?.position ||
+    (user as any)?.employee_role ||
+    (user as any)?.position ||
+    '';
   const displayRole = (user as any)?.role || '';
   const displaySalary = profileData?.salary || user?.salary || 0;
   const displayJoinDate = profileData?.date_of_joining || user?.joinDate || '';

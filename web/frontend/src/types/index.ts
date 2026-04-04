@@ -1,24 +1,35 @@
-export type UserRole = 'admin' | 'employee' | 'hr';
+export type UserRole = "admin" | "employee" | "hr" | "client";
 
 export interface User {
-  id: string;
-  employeeId: string;
+  id?: string;
+  hr_id?: string;
+  emp_id?: string;
+  client_id?: string;
+  employeeId?: string;
   email: string;
   role: UserRole;
-  firstName: string;
-  lastName: string;
-  department: string;
-  position: string;
-  phone: string;
-  address: string;
-  joinDate: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  department?: string;
+  position?: string;
+  phone?: string;
+  address?: string;
+  joinDate?: string;
   profilePicture?: string;
-  salary: number;
+  profile_picture?: string;
+  salary?: number;
   companyName?: string;
+  company_name?: string;
   companyLogo?: string;
+  logo?: string;
+  employee_role?: string;
+  experience?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export type AttendanceStatus = 'present' | 'absent' | 'half-day' | 'leave';
+export type AttendanceStatus = "present" | "absent" | "half-day" | "leave";
 
 export interface AttendanceRecord {
   id: string;
@@ -37,8 +48,8 @@ export interface AttendanceStats {
   totalHours: number;
 }
 
-export type LeaveType = 'paid' | 'sick' | 'unpaid';
-export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type LeaveType = "paid" | "sick" | "unpaid";
+export type LeaveStatus = "pending" | "approved" | "rejected";
 
 export interface LeaveRequest {
   id: string;
@@ -74,17 +85,56 @@ export interface PayrollRecord {
 }
 
 export interface Employee {
-  id: string;
-  employeeId: string;
+  id?: string;
+  emp_id?: string;
+  employeeId?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  department?: string;
+  position?: string;
+  role?: UserRole;
+  employee_role?: string;
+  experience?: number;
+  salary?: number;
+  joinDate?: string;
+  profilePicture?: string;
+  profile_picture?: string;
+  address?: string;
+  created_at?: string;
+}
+
+export interface HrDirectoryItem {
+  hr_id: string;
   name: string;
   email: string;
   phone: string;
-  department: string;
-  position: string;
-  role: UserRole;
-  salary: number;
-  joinDate: string;
-  profilePicture?: string;
-  address?: string;
+  company_name: string;
+  logo?: string | null;
+  profile_picture?: string | null;
+  department?: string | null;
+  location?: string | null;
+  summary?: string | null;
+  skills?: string | null;
+  employee_count?: number;
+  connection_id?: string | null;
+  connection_status?: string | null;
+  last_requested_mode?: string | null;
+  connection_message?: string | null;
+  connection_updated_at?: string | null;
 }
 
+export interface ClientProjectUpload {
+  upload_id: string;
+  project_name?: string | null;
+  overview?: string | null;
+  original_name: string;
+  file_path: string;
+  processing_status: string;
+  confidence_flag?: string | null;
+  created_at: string;
+  updated_at: string;
+  hr_id?: string | null;
+  hr_name?: string | null;
+  hr_company_name?: string | null;
+}

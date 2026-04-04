@@ -14,6 +14,8 @@ import LeaveApprovals from "./pages/LeaveApprovals";
 import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
 import Settings from "./pages/Settings";
+import ClientProjects from "./pages/ClientProjects";
+import HrDirectory from "./pages/HrDirectory";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +40,8 @@ const App = () => (
               <Route path="/employees" element={<Employees />} />
               <Route path="/payroll" element={<Payroll />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/client/projects" element={<ClientProjects />} />
+              <Route path="/client/hr-directory" element={<HrDirectory />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

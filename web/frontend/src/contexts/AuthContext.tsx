@@ -14,12 +14,14 @@ interface AuthContextType {
 }
 
 interface SignupData {
+  accountType: "hr" | "client";
   name: string;
   phone: string;
   email: string;
   password: string;
   company_name: string;
-  logo: File;
+  address?: string;
+  logo: File | null;
   profile_picture: File | null;
 }
 
@@ -90,14 +92,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       formData.append("phone", data.phone);
       formData.append("email", data.email);
       formData.append("password", data.password);
-      formData.append("company_name", data.company_name);
-      formData.append("logo", data.logo);
+      if (data.company_name) {
+        formData.append("company_name", data.company_name);
+      }
+
+      if (data.address) {
+        formData.append("address", data.address);
+      }
+
+      if (data.logo) {
+        formData.append("logo", data.logo);
+      }
 
       if (data.profile_picture) {
         formData.append("profile_picture", data.profile_picture);
       }
 
-      const response = await authAPI.signup(formData);
+      const response = await authAPI.signup(formData, data.accountType);
 
       // Backend sets cookie; store user locally
       setUser(response.user);
