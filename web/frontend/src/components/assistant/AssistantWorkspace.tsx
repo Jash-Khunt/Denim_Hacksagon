@@ -16,6 +16,16 @@ import AssistantMessageContent, {
   normalizePreview,
 } from "@/components/assistant/AssistantMessageContent";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Clock3,
   History,
   Loader2,
@@ -29,6 +39,11 @@ import {
 } from "lucide-react";
 const MAX_THREADS = 20;
 const MAX_MESSAGES = 40;
+
+type PendingConfirmation =
+  | { type: "delete-thread"; threadId: string; threadTitle: string }
+  | { type: "clear-history"; count: number }
+  | null;
 
 const starterPrompts = [
   "Summarize the latest indexed document",
@@ -121,6 +136,8 @@ const AssistantWorkspace = () => {
   const [isHistoryVisible, setIsHistoryVisible] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -314,6 +331,19 @@ const AssistantWorkspace = () => {
   };
 
   const removeThread = async (threadId: string) => {
+    const targetThread = threads.find((thread) => thread.id === threadId);
+    if (!targetThread) {
+      return;
+    }
+
+    setPendingConfirmation({
+      type: "delete-thread",
+      threadId,
+      threadTitle: targetThread.title,
+    });
+  };
+
+  const deleteThread = async (threadId: string) => {
     try {
       await assistantAPI.deleteThread(threadId);
       const remainingThreads = threads.filter((thread) => thread.id !== threadId);
@@ -329,6 +359,17 @@ const AssistantWorkspace = () => {
   };
 
   const clearHistory = async () => {
+    if (threads.length === 0) {
+      return;
+    }
+
+    setPendingConfirmation({
+      type: "clear-history",
+      count: threads.length,
+    });
+  };
+
+  const clearAllThreads = async () => {
     try {
       await assistantAPI.clearThreads();
       setThreads([]);
@@ -343,9 +384,26 @@ const AssistantWorkspace = () => {
     }
   };
 
+  const handleConfirmAction = async () => {
+    const action = pendingConfirmation;
+    if (!action) {
+      return;
+    }
+
+    setPendingConfirmation(null);
+
+    if (action.type === "delete-thread") {
+      await deleteThread(action.threadId);
+      return;
+    }
+
+    await clearAllThreads();
+  };
+
   return (
-    <Card className="h-[760px] overflow-hidden border-border/70 bg-card/90 shadow-card backdrop-blur-md">
-      <CardContent className="relative h-full p-0">
+    <>
+      <Card className="h-[760px] overflow-hidden border-border/70 bg-card/90 shadow-card backdrop-blur-md">
+        <CardContent className="relative h-full p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
@@ -641,8 +699,46 @@ const AssistantWorkspace = () => {
             </div>
           </aside>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <AlertDialog
+        open={pendingConfirmation !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setPendingConfirmation(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingConfirmation?.type === "delete-thread"
+                ? "Delete conversation?"
+                : "Clear all conversations?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConfirmation?.type === "delete-thread"
+                ? `This will permanently remove \"${pendingConfirmation.threadTitle}\".`
+                : `This will permanently remove ${pendingConfirmation?.count ?? 0} conversation${(pendingConfirmation?.count ?? 0) === 1 ? "" : "s"}.`}
+              {" "}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void handleConfirmAction()}
+            >
+              {pendingConfirmation?.type === "delete-thread"
+                ? "Delete"
+                : "Clear all"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
