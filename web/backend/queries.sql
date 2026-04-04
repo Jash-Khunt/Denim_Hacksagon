@@ -80,3 +80,71 @@ CREATE TABLE payroll (
   paid_status VARCHAR(20) CHECK (paid_status IN ('Paid','Unpaid')) DEFAULT 'Unpaid'
 );
 
+-- ===========================
+-- Client onboarding + project intake
+-- ===========================
+
+CREATE TABLE IF NOT EXISTS client (
+  client_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  company_name VARCHAR(150) NOT NULL,
+  profile_picture VARCHAR(255),
+  address TEXT,
+  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS client_hr_connections (
+  connection_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client(client_id) ON DELETE CASCADE,
+  hr_id UUID NOT NULL REFERENCES hr(hr_id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'connected', 'declined')),
+  last_requested_mode VARCHAR(20) NOT NULL DEFAULT 'connect'
+    CHECK (last_requested_mode IN ('connect', 'chat', 'meeting')),
+  message TEXT,
+  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  UNIQUE (client_id, hr_id)
+);
+
+CREATE TABLE IF NOT EXISTS client_project_uploads (
+  upload_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client(client_id) ON DELETE CASCADE,
+  hr_id UUID REFERENCES hr(hr_id) ON DELETE SET NULL,
+  original_name VARCHAR(255) NOT NULL,
+  stored_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  project_name VARCHAR(255),
+  overview TEXT,
+  upload_source VARCHAR(20) NOT NULL DEFAULT 'local'
+    CHECK (upload_source IN ('local')),
+  processing_status VARCHAR(30) NOT NULL DEFAULT 'uploaded'
+    CHECK (
+      processing_status IN (
+        'uploaded',
+        'processing',
+        'tasks_extracted',
+        'tickets_created',
+        'assigned',
+        'needs_hr_review'
+      )
+    ),
+  confidence_flag VARCHAR(10)
+    CHECK (confidence_flag IN ('high', 'low')),
+  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+);
+
+-- ===========================
+-- Employee enrichment for task assignment
+-- ===========================
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS role VARCHAR(120);
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS experience INTEGER DEFAULT 0;

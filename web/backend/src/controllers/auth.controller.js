@@ -2,17 +2,40 @@ import bcrypt from "bcryptjs";
 import { pool } from "../lib/db.js";
 import { generateToken } from "../lib/utils.js";
 
+const sanitizeUser = (user) => {
+  const { password_hash, ...userWithoutPass } = user;
+  return userWithoutPass;
+};
+
+const getEmployeeAuthSelect = () => `
+  SELECT
+    emp_id,
+    hr_id,
+    name,
+    phone,
+    email,
+    password_hash,
+    profile_picture,
+    role AS employee_role,
+    experience,
+    created_at,
+    updated_at,
+    'employee' AS role
+  FROM employee
+`;
+
 export const registerHr = async (req, res) => {
   console.log("BODY:", req.body);
   console.log("FILES:", req.files);
 
   const { name, phone, email, password, company_name } = req.body;
+  const files = req.files || {};
 
   // Handle Files
   // req.files is an object because we use upload.fields() in the route
-  const logoPath = req.files["logo"] ? req.files["logo"][0].path : null;
-  const profilePicPath = req.files["profile_picture"]
-    ? req.files["profile_picture"][0].path
+  const logoPath = files["logo"] ? files["logo"][0].path : null;
+  const profilePicPath = files["profile_picture"]
+    ? files["profile_picture"][0].path
     : null;
 
   if (!logoPath) {
@@ -50,11 +73,71 @@ export const registerHr = async (req, res) => {
 
     generateToken(result.rows[0].hr_id, res);
 
-    // Remove password before sending back
-    const { password_hash: pass, ...userWithoutPass } = result.rows[0];
-    res.status(201).json({ user: userWithoutPass, role: "hr" });
+    res.status(201).json({ user: sanitizeUser(result.rows[0]), role: "hr" });
   } catch (error) {
     console.log("Error in registerHr:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const registerClient = async (req, res) => {
+  const { name, phone, email, password, company_name, address } = req.body;
+  const profilePicPath = req.file ? req.file.path : null;
+
+  try {
+    const existingClient = await pool.query(
+      "SELECT client_id FROM client WHERE email = $1",
+      [email]
+    );
+
+    if (existingClient.rows.length > 0) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const result = await pool.query(
+      `INSERT INTO client (
+        name,
+        phone,
+        email,
+        password_hash,
+        company_name,
+        profile_picture,
+        address
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING
+        client_id,
+        name,
+        phone,
+        email,
+        company_name,
+        profile_picture,
+        address,
+        created_at,
+        updated_at,
+        'client' AS role`,
+      [
+        name,
+        phone,
+        email,
+        hashedPassword,
+        company_name,
+        profilePicPath,
+        address || null,
+      ]
+    );
+
+    generateToken(result.rows[0].client_id, res);
+
+    res.status(201).json({
+      user: sanitizeUser(result.rows[0]),
+      role: "client",
+    });
+  } catch (error) {
+    console.log("Error in registerClient:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -74,11 +157,34 @@ export const login = async (req, res) => {
     // 2. If not HR, Check Employee
     if (!user) {
       result = await pool.query(
-        "SELECT *, 'employee' as role FROM employee WHERE email = $1",
+        `${getEmployeeAuthSelect()} WHERE email = $1`,
         [email]
       );
       user = result.rows[0];
       idField = "emp_id";
+    }
+
+    // 3. If not Employee, Check Client
+    if (!user) {
+      result = await pool.query(
+        `SELECT
+          client_id,
+          name,
+          phone,
+          email,
+          password_hash,
+          company_name,
+          profile_picture,
+          address,
+          created_at,
+          updated_at,
+          'client' AS role
+        FROM client
+        WHERE email = $1`,
+        [email]
+      );
+      user = result.rows[0];
+      idField = "client_id";
     }
 
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
@@ -89,9 +195,7 @@ export const login = async (req, res) => {
 
     generateToken(user[idField], res);
 
-    // Return user info (frontend will use 'logo' or 'profile_picture' from here)
-    const { password_hash: pass, ...userWithoutPass } = user;
-    res.status(200).json({ user: userWithoutPass, role: user.role });
+    res.status(200).json({ user: sanitizeUser(user), role: user.role });
   } catch (error) {
     console.log("Error login:", error.message);
     res.status(500).json({ message: "Internal Server Error" });

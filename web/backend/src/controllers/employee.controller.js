@@ -2,9 +2,19 @@ import bcrypt from "bcryptjs";
 import { pool } from "../lib/db.js";
 
 export const addEmployee = async (req, res) => {
-  const { name, phone, email, password } = req.body;
+  const { name, phone, email, password, role, experience } = req.body;
   const hr_id = req.user.hr_id;
   const profilePicPath = req.file ? req.file.path : null; // Handle uploaded file
+  const parsedExperience =
+    experience === undefined || experience === null || experience === ""
+      ? 0
+      : Number.parseInt(experience, 10);
+
+  if (Number.isNaN(parsedExperience) || parsedExperience < 0) {
+    return res
+      .status(400)
+      .json({ message: "Experience must be a positive number" });
+  }
 
   try {
     const existingEmp = await pool.query(
@@ -22,9 +32,38 @@ export const addEmployee = async (req, res) => {
       await client.query("BEGIN");
 
       const empResult = await client.query(
-        `INSERT INTO employee (hr_id, name, phone, email, password_hash, profile_picture) 
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [hr_id, name, phone, email, hashedPassword, profilePicPath],
+        `INSERT INTO employee (
+          hr_id,
+          name,
+          phone,
+          email,
+          password_hash,
+          profile_picture,
+          role,
+          experience
+        )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING
+          emp_id,
+          hr_id,
+          name,
+          phone,
+          email,
+          profile_picture,
+          role AS employee_role,
+          experience,
+          created_at,
+          updated_at`,
+        [
+          hr_id,
+          name,
+          phone,
+          email,
+          hashedPassword,
+          profilePicPath,
+          role || null,
+          parsedExperience,
+        ],
       );
 
       await client.query(
@@ -49,7 +88,16 @@ export const addEmployee = async (req, res) => {
 export const getAllEmployees = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT e.emp_id, e.name, e.email, e.phone, e.profile_picture, p.department 
+      `SELECT
+        e.emp_id,
+        e.name,
+        e.email,
+        e.phone,
+        e.profile_picture,
+        e.role AS employee_role,
+        e.experience,
+        e.created_at,
+        p.department
        FROM employee e 
        LEFT JOIN profile_info p ON e.emp_id = p.emp_id 
        WHERE e.hr_id = $1`,
