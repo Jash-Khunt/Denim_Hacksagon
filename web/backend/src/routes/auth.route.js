@@ -1,6 +1,7 @@
 import express from "express";
 import {
   registerHr,
+  registerClient,
   login,
   logout,
   getMe,
@@ -18,6 +19,12 @@ router.post(
     { name: "profile_picture", maxCount: 1 },
   ]),
   registerHr
+);
+
+router.post(
+  "/signup/client",
+  upload.single("profile_picture"),
+  registerClient
 );
 
 router.post("/login", login);

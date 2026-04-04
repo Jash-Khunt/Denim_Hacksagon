@@ -1,6 +1,23 @@
 import jwt from "jsonwebtoken";
 import { pool } from "../lib/db.js";
 
+const getEmployeeAuthSelect = () => `
+  SELECT
+    emp_id,
+    hr_id,
+    name,
+    phone,
+    email,
+    password_hash,
+    profile_picture,
+    role AS employee_role,
+    experience,
+    created_at,
+    updated_at,
+    'employee' AS role
+  FROM employee
+`;
+
 export const protectRoute = async (req, res, next) => {
   try {
     const token = req.cookies.jwt;
@@ -19,15 +36,37 @@ export const protectRoute = async (req, res, next) => {
     // Try HR first
     let result = await pool.query(
       "SELECT *, 'hr' as role FROM hr WHERE hr_id = $1",
-      [id]
+      [id],
     );
     let user = result.rows[0];
 
     // If not HR, try employee
     if (!user) {
       result = await pool.query(
-        "SELECT *, 'employee' as role FROM employee WHERE emp_id = $1",
-        [id]
+        `${getEmployeeAuthSelect()} WHERE emp_id = $1`,
+        [id],
+      );
+      user = result.rows[0];
+    }
+
+    // If not Employee, try Client
+    if (!user) {
+      result = await pool.query(
+        `SELECT
+          client_id,
+          name,
+          phone,
+          email,
+          password_hash,
+          company_name,
+          profile_picture,
+          address,
+          created_at,
+          updated_at,
+          'client' AS role
+        FROM client
+        WHERE client_id = $1`,
+        [id],
       );
       user = result.rows[0];
     }

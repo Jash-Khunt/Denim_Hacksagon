@@ -6,7 +6,7 @@ import { pool } from "../lib/db.js";
 export const updateImage = async (req, res) => {
   try {
     const { role } = req.user;
-    const userId = req.user.hr_id || req.user.emp_id;
+    const userId = req.user.hr_id || req.user.emp_id || req.user.client_id;
     const file = req.file;
 
     if (!file) {
@@ -29,8 +29,9 @@ export const updateImage = async (req, res) => {
       return res.json({ message: "Company logo updated", imageUrl: file.path });
     }
 
-    const table = role === "hr" ? "hr" : "employee";
-    const idCol = role === "hr" ? "hr_id" : "emp_id";
+    const table = role === "hr" ? "hr" : role === "client" ? "client" : "employee";
+    const idCol =
+      role === "hr" ? "hr_id" : role === "client" ? "client_id" : "emp_id";
 
     await pool.query(
       `UPDATE ${table} SET profile_picture = $1 WHERE ${idCol} = $2`,
@@ -52,12 +53,44 @@ export const updateImage = async (req, res) => {
  */
 export const updateProfile = async (req, res) => {
   const { role } = req.user;
-  const requesterId = req.user.hr_id || req.user.emp_id;
+  const requesterId = req.user.hr_id || req.user.emp_id || req.user.client_id;
 
   const targetId =
     role === "hr" && req.body.target_id ? req.body.target_id : requesterId;
 
   try {
+    if (role === "client") {
+      const { name, phone, address, company_name } = req.body;
+
+      const result = await pool.query(
+        `UPDATE client
+         SET
+          name = COALESCE($1, name),
+          phone = COALESCE($2, phone),
+          address = COALESCE($3, address),
+          company_name = COALESCE($4, company_name),
+          updated_at = NOW()
+         WHERE client_id = $5
+         RETURNING
+          client_id,
+          name,
+          phone,
+          email,
+          company_name,
+          profile_picture,
+          address,
+          created_at,
+          updated_at,
+          'client' AS role`,
+        [name, phone, address, company_name, requesterId]
+      );
+
+      return res.json({
+        user: result.rows[0] || {},
+        message: "Client profile updated successfully",
+      });
+    }
+
     // ===========================
     // HR UPDATE
     // ===========================
@@ -153,7 +186,14 @@ export const updateProfile = async (req, res) => {
 
         // Fetch and return the updated profile
         const profileResult = await pool.query(
-          `SELECT e.name, e.phone, e.email, e.profile_picture, p.* 
+          `SELECT
+            e.name,
+            e.phone,
+            e.email,
+            e.profile_picture,
+            e.role AS employee_role,
+            e.experience,
+            p.*
            FROM employee e
            LEFT JOIN profile_info p ON e.emp_id = p.emp_id
            WHERE e.emp_id = $1`,
@@ -233,7 +273,14 @@ export const updateProfile = async (req, res) => {
 
     // Fetch and return the updated profile
     const profileResult = await pool.query(
-      `SELECT e.name, e.phone, e.email, e.profile_picture, p.* 
+      `SELECT
+        e.name,
+        e.phone,
+        e.email,
+        e.profile_picture,
+        e.role AS employee_role,
+        e.experience,
+        p.*
        FROM employee e
        LEFT JOIN profile_info p ON e.emp_id = p.emp_id
        WHERE e.emp_id = $1`,
@@ -251,11 +298,19 @@ export const updateProfile = async (req, res) => {
  * 3️⃣ Get Profile
  */
 export const getProfile = async (req, res) => {
-  const id = req.params.id || req.user.hr_id || req.user.emp_id;
+  const id =
+    req.params.id || req.user.hr_id || req.user.emp_id || req.user.client_id;
 
   try {
     let result = await pool.query(
-      `SELECT e.name, e.phone, e.email, e.profile_picture, p.* 
+      `SELECT
+        e.name,
+        e.phone,
+        e.email,
+        e.profile_picture,
+        e.role AS employee_role,
+        e.experience,
+        p.*
        FROM employee e
        LEFT JOIN profile_info p ON e.emp_id = p.emp_id
        WHERE e.emp_id = $1`,
@@ -267,7 +322,27 @@ export const getProfile = async (req, res) => {
         `SELECT h.name, h.phone, h.email, h.profile_picture, h.logo, h.company_name, p.*
          FROM hr h
          LEFT JOIN profile_info p ON h.hr_id = p.hr_id
+          AND p.emp_id IS NULL
          WHERE h.hr_id = $1`,
+        [id]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        `SELECT
+          client_id,
+          name,
+          phone,
+          email,
+          company_name,
+          profile_picture,
+          address,
+          created_at,
+          updated_at,
+          'client' AS role
+         FROM client
+         WHERE client_id = $1`,
         [id]
       );
     }
