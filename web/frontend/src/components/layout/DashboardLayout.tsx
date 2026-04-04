@@ -11,6 +11,7 @@ import {
   UserCircle,
   FileText,
   Handshake,
+  KanbanSquare,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -60,10 +61,22 @@ const DashboardLayout = () => {
       roles: ["client"],
     },
     {
+      label: "Client Requests",
+      href: "/hr/connections",
+      icon: Handshake,
+      roles: ["hr"],
+    },
+    {
       label: "HR Directory",
       href: "/client/hr-directory",
       icon: Handshake,
       roles: ["client"],
+    },
+    {
+      label: "Tickets",
+      href: "/tickets",
+      icon: KanbanSquare,
+      roles: ["hr", "employee"],
     },
     {
       label: "Payroll",

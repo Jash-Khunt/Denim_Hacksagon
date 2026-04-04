@@ -124,6 +124,25 @@ export interface HrDirectoryItem {
   connection_updated_at?: string | null;
 }
 
+export interface ClientConnection {
+  connection_id: string;
+  status: "pending" | "connected" | "declined";
+  last_requested_mode: "connect" | "chat" | "meeting";
+  message?: string | null;
+  created_at: string;
+  updated_at: string;
+  hr_id?: string;
+  client_id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company_name?: string;
+  profile_picture?: string | null;
+  address?: string | null;
+  upload_count?: number;
+  task_count?: number;
+}
+
 export interface ClientProjectUpload {
   upload_id: string;
   project_name?: string | null;
@@ -132,9 +151,53 @@ export interface ClientProjectUpload {
   file_path: string;
   processing_status: string;
   confidence_flag?: string | null;
+  bot_raw_response?: string | null;
   created_at: string;
   updated_at: string;
   hr_id?: string | null;
   hr_name?: string | null;
   hr_company_name?: string | null;
+  task_count?: number;
+}
+
+export type TaskStatus = "todo" | "in_progress" | "review" | "done";
+
+export interface ProjectTaskComment {
+  comment_id: string;
+  task_id: string;
+  author_role: UserRole | "system";
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ProjectTask {
+  task_id: string;
+  upload_id?: string | null;
+  client_id: string;
+  hr_id: string;
+  assignee_emp_id?: string | null;
+  task_key: string;
+  title: string;
+  description?: string | null;
+  difficulty: "Easy" | "Medium" | "Hard";
+  field: string;
+  confidence_flag: "High" | "Low";
+  human_intervention: boolean;
+  status: TaskStatus;
+  assignment_mode: "auto" | "manual" | "unassigned";
+  priority: "Low" | "Medium" | "High";
+  due_date?: string | null;
+  created_at: string;
+  updated_at: string;
+  client_name?: string;
+  client_company_name?: string;
+  client_email?: string;
+  client_phone?: string;
+  client_address?: string | null;
+  project_name?: string | null;
+  original_name?: string | null;
+  assignee_name?: string | null;
+  assignee_role?: string | null;
+  comments?: ProjectTaskComment[];
 }

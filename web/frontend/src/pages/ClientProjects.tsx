@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,25 +15,28 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { clientAPI } from "@/services/api";
-import { ClientProjectUpload, HrDirectoryItem } from "@/types";
+import { ClientConnection, ClientProjectUpload } from "@/types";
 import {
   ArrowUpRight,
+  Bot,
   Building2,
   FileText,
   Loader2,
+  ShieldCheck,
   Sparkles,
   Upload,
 } from "lucide-react";
 
 const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1").replace(
   "/api/v1",
-  ""
+  "",
 );
 
 const ClientProjects = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<ClientProjectUpload[]>([]);
-  const [hrs, setHrs] = useState<HrDirectoryItem[]>([]);
+  const [connections, setConnections] = useState<ClientConnection[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,41 +44,72 @@ const ClientProjects = () => {
     project_name: "",
     overview: "",
     hr_id: "",
+    bot_response: "",
   });
+
+  const connectedConnections = useMemo(
+    () => connections.filter((connection) => connection.status === "connected"),
+    [connections],
+  );
+
+  const pendingCount = useMemo(
+    () => connections.filter((connection) => connection.status === "pending").length,
+    [connections],
+  );
 
   const hrOptions = useMemo(
     () =>
-      hrs.map((hr) => ({
-        value: hr.hr_id,
-        label: `${hr.name} • ${hr.company_name}`,
+      connectedConnections.map((connection) => ({
+        value: connection.hr_id || "",
+        label: `${connection.name} • ${connection.company_name || "HR partner"}`,
       })),
-    [hrs]
+    [connectedConnections],
   );
 
-  const loadData = async () => {
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "Please try again.";
+
+  const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [projectResponse, hrResponse] = await Promise.all([
+      const [projectResponse, connectionResponse] = await Promise.all([
         clientAPI.getProjects(),
-        clientAPI.getHrDirectory(),
+        clientAPI.getConnections(),
       ]);
 
       setProjects(projectResponse.uploads);
-      setHrs(hrResponse.hrs);
-    } catch (error: any) {
+      setConnections(connectionResponse.connections);
+
+      const connected = connectionResponse.connections.filter(
+        (connection) => connection.status === "connected",
+      );
+
+      if (connected.length === 1) {
+        setForm((prev) => ({ ...prev, hr_id: connected[0].hr_id || "" }));
+      }
+
+      if (connected.length === 0) {
+        toast({
+          title: "HR approval required",
+          description:
+            "Your project upload workspace unlocks after an HR partner approves your connection request.",
+        });
+        navigate("/client/hr-directory", { replace: true });
+      }
+    } catch (error: unknown) {
       toast({
         title: "Could not load project workspace",
-        description: error.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [navigate, toast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,27 +123,46 @@ const ClientProjects = () => {
       return;
     }
 
+    if (!form.hr_id) {
+      toast({
+        title: "HR partner required",
+        description: "Choose one approved HR connection for this project upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formData = new FormData();
     formData.append("pdf", selectedFile);
     formData.append("project_name", form.project_name);
     formData.append("overview", form.overview);
-    if (form.hr_id) formData.append("hr_id", form.hr_id);
+    formData.append("hr_id", form.hr_id);
+    if (form.bot_response.trim()) {
+      formData.append("bot_response", form.bot_response);
+    }
 
     try {
       setIsSubmitting(true);
       const response = await clientAPI.uploadProjectPdf(formData);
       setProjects((prev) => [response.upload, ...prev]);
       setSelectedFile(null);
-      setForm({ project_name: "", overview: "", hr_id: "" });
+      setForm({
+        project_name: "",
+        overview: "",
+        hr_id: connectedConnections.length === 1 ? connectedConnections[0].hr_id || "" : "",
+        bot_response: "",
+      });
 
       toast({
-        title: "Project PDF uploaded",
-        description: "The brief is stored and ready for chatbot processing.",
+        title: "Project intake saved",
+        description: response.tasks?.length
+          ? `${response.tasks.length} tickets were created from the chatbot output.`
+          : "The PDF is connected to HR and ready for chatbot processing.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Upload failed",
-        description: error.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -116,23 +170,31 @@ const ClientProjects = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading project workspace...
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-fade-in">
       <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-card shadow-lg">
-        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="relative overflow-hidden px-8 py-9">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,180,118,0.28),transparent_45%),linear-gradient(140deg,rgba(255,255,255,0.5),rgba(255,246,240,0.9))]" />
             <div className="relative space-y-5">
               <Badge className="rounded-full bg-primary/15 px-4 py-1 text-primary hover:bg-primary/15">
-                Client Intake Workspace
+                Approved Client Intake
               </Badge>
               <h1 className="max-w-2xl text-4xl font-bold leading-tight">
-                Bring the project brief in first, then let the chatbot turn it into structured Jira work.
+                Your approved HR connection is live, so project briefs can now move into ticket creation.
               </h1>
               <p className="max-w-xl text-muted-foreground">
-                This Clautzel client view keeps the upload local for now,
-                connects the brief to HR when needed, and sets up the next step
-                for extraction and confidence-based assignment.
+                Upload the PDF, choose the approved HR partner, and optionally
+                paste the chatbot JSON output to create delivery tickets right away.
               </p>
             </div>
           </div>
@@ -140,10 +202,10 @@ const ClientProjects = () => {
           <div className="border-t border-border/60 bg-gradient-to-br from-primary/10 via-accent/40 to-background px-8 py-9 lg:border-l lg:border-t-0">
             <div className="space-y-4">
               {[
-                "Upload the project overview PDF",
-                "Chatbot extracts structured tasks",
-                "High-confidence work can be auto-assigned",
-                "Low-confidence tasks remain with HR for review",
+                "Client connection approved by HR",
+                "Project PDF linked to the right HR partner",
+                "Chatbot output converted into internal tickets",
+                "High confidence tasks auto-assign while low confidence waits for HR review",
               ].map((step, index) => (
                 <div
                   key={step}
@@ -160,13 +222,34 @@ const ClientProjects = () => {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.05fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="border-border/60 bg-card/95">
           <CardHeader>
             <CardTitle>Upload Project Overview</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                {connectedConnections.map((connection) => (
+                  <div
+                    key={connection.connection_id}
+                    className="rounded-[1.4rem] border border-border/60 bg-muted/20 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700">
+                        <ShieldCheck className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{connection.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {connection.company_name}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="project_name">Project name</Label>
                 <Input
@@ -181,20 +264,7 @@ const ClientProjects = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="overview">Short overview</Label>
-                <Textarea
-                  id="overview"
-                  rows={5}
-                  placeholder="Add a short summary so the HR team has context before chatbot extraction."
-                  value={form.overview}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, overview: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Select HR partner</Label>
+                <Label>Approved HR partner</Label>
                 <Select
                   value={form.hr_id || undefined}
                   onValueChange={(value) =>
@@ -202,7 +272,7 @@ const ClientProjects = () => {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Attach this brief to an HR partner" />
+                    <SelectValue placeholder="Select one approved HR connection" />
                   </SelectTrigger>
                   <SelectContent>
                     {hrOptions.map((option) => (
@@ -212,6 +282,19 @@ const ClientProjects = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="overview">Short overview</Label>
+                <Textarea
+                  id="overview"
+                  rows={4}
+                  placeholder="Give the HR team a quick summary before the chatbot converts the brief into tasks."
+                  value={form.overview}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, overview: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="space-y-3">
@@ -227,7 +310,7 @@ const ClientProjects = () => {
                     {selectedFile ? selectedFile.name : "Drop or choose a PDF"}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Local upload only for this phase.
+                    Upload opens only after HR approval.
                   </p>
                 </label>
                 <Input
@@ -239,94 +322,146 @@ const ClientProjects = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="bot_response">Chatbot ticket JSON</Label>
+                <Textarea
+                  id="bot_response"
+                  rows={9}
+                  placeholder='Paste the current chatbot response here if you want tickets created immediately. Example: [{"task":"Build login flow","Difficulty":"Medium","field":"Front-end","flag":"High","human_intervention":false}]'
+                  value={form.bot_response}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, bot_response: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  This bridges the current standalone chatbot into the web workflow until the bot moves into the dashboard.
+                </p>
+              </div>
+
               <Button type="submit" className="w-full rounded-2xl" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                Upload and Prepare Brief
+                Upload and Create Intake
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-card/95">
-          <CardHeader>
-            <CardTitle>Recent Uploads</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading uploads...
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="rounded-[1.8rem] border border-dashed border-border bg-muted/20 p-10 text-center">
-                <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-4 font-medium">No PDFs uploaded yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your uploaded project briefs will appear here.
-                </p>
-              </div>
-            ) : (
-              projects.map((project) => (
-                <div
-                  key={project.upload_id}
-                  className="rounded-[1.6rem] border border-border/60 bg-background/75 p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-semibold">
-                        {project.project_name || project.original_name}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Uploaded on{" "}
-                        {new Date(project.created_at).toLocaleDateString("en-US", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="capitalize">
-                      {project.processing_status.replaceAll("_", " ")}
-                    </Badge>
+        <div className="space-y-6">
+          <Card className="border-border/60 bg-card/95">
+            <CardHeader>
+              <CardTitle>Connection Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-[1.5rem] border border-border/60 bg-muted/20 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Building2 className="h-5 w-5 text-primary" />
                   </div>
-
-                  {project.overview && (
-                    <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                      {project.overview}
+                  <div>
+                    <p className="font-semibold">{connectedConnections.length} approved HR partner(s)</p>
+                    <p className="text-sm text-muted-foreground">
+                      {pendingCount} pending request(s) still awaiting approval.
                     </p>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
-                      <FileText className="h-4 w-4" />
-                      {project.original_name}
-                    </div>
-                    {project.hr_name && (
-                      <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
-                        <Building2 className="h-4 w-4" />
-                        {project.hr_name} • {project.hr_company_name}
-                      </div>
-                    )}
                   </div>
-
-                  <a
-                    href={`${API_ROOT}/${project.file_path}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                  >
-                    Open uploaded PDF
-                    <ArrowUpRight className="h-4 w-4" />
-                  </a>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-border/60 bg-muted/20 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Bot className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Current chatbot bridge</p>
+                    <p className="text-sm text-muted-foreground">
+                      Paste the bot response above to seed internal tickets in the HR board immediately.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 bg-card/95">
+            <CardHeader>
+              <CardTitle>Recent Uploads</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {projects.length === 0 ? (
+                <div className="rounded-[1.8rem] border border-dashed border-border bg-muted/20 p-10 text-center">
+                  <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
+                  <p className="mt-4 font-medium">No PDFs uploaded yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Your approved project briefs will appear here.
+                  </p>
+                </div>
+              ) : (
+                projects.map((project) => (
+                  <div
+                    key={project.upload_id}
+                    className="rounded-[1.6rem] border border-border/60 bg-background/75 p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold">
+                          {project.project_name || project.original_name}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Uploaded on{" "}
+                          {new Date(project.created_at).toLocaleDateString("en-US", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="capitalize">
+                        {project.processing_status.replaceAll("_", " ")}
+                      </Badge>
+                    </div>
+
+                    {project.overview && (
+                      <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                        {project.overview}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
+                        <FileText className="h-4 w-4" />
+                        {project.original_name}
+                      </div>
+                      {project.hr_name && (
+                        <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
+                          <Building2 className="h-4 w-4" />
+                          {project.hr_name} • {project.hr_company_name}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
+                        <Bot className="h-4 w-4" />
+                        {project.task_count || 0} tickets
+                      </div>
+                    </div>
+
+                    <a
+                      href={`${API_ROOT}/${project.file_path}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                    >
+                      Open uploaded PDF
+                      <ArrowUpRight className="h-4 w-4" />
+                    </a>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

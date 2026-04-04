@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,31 +36,35 @@ const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1"
 
 const HrDirectory = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [hrs, setHrs] = useState<HrDirectoryItem[]>([]);
   const [selectedHr, setSelectedHr] = useState<HrDirectoryItem | null>(null);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingMode, setIsSubmittingMode] = useState<string | null>(null);
 
-  const loadHrDirectory = async () => {
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "Please try again.";
+
+  const loadHrDirectory = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await clientAPI.getHrDirectory();
       setHrs(response.hrs);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Could not load HR directory",
-        description: error.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadHrDirectory();
-  }, []);
+  }, [loadHrDirectory]);
 
   const filteredHrs = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -98,15 +103,54 @@ const HrDirectory = () => {
         title: "Request saved",
         description: `Your ${mode} request has been sent to the HR contact.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Request failed",
-        description: error.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
       setIsSubmittingMode(null);
     }
+  };
+
+  const renderPrimaryAction = (hr: HrDirectoryItem) => {
+    if (hr.connection_status === "connected") {
+      return (
+        <Button
+          onClick={() => {
+            setSelectedHr(null);
+            navigate("/client/projects");
+          }}
+        >
+          <ArrowUpRight className="mr-2 h-4 w-4" />
+          Open Upload Workspace
+        </Button>
+      );
+    }
+
+    if (hr.connection_status === "pending") {
+      return (
+        <Button disabled>
+          <Loader2 className="mr-2 h-4 w-4" />
+          Awaiting HR Approval
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        onClick={() => handleConnect(hr.hr_id, "connect")}
+        disabled={!!isSubmittingMode}
+      >
+        {isSubmittingMode === "connect" ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Handshake className="mr-2 h-4 w-4" />
+        )}
+        Send Connection Request
+      </Button>
+    );
   };
 
   return (
@@ -298,21 +342,11 @@ const HrDirectory = () => {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <Button
-                      onClick={() => handleConnect(selectedHr.hr_id, "connect")}
-                      disabled={!!isSubmittingMode}
-                    >
-                      {isSubmittingMode === "connect" ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Handshake className="mr-2 h-4 w-4" />
-                      )}
-                      Connect
-                    </Button>
+                    {renderPrimaryAction(selectedHr)}
                     <Button
                       variant="outline"
                       onClick={() => handleConnect(selectedHr.hr_id, "chat")}
-                      disabled={!!isSubmittingMode}
+                      disabled={!!isSubmittingMode || selectedHr.connection_status === "pending"}
                     >
                       {isSubmittingMode === "chat" ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -324,7 +358,7 @@ const HrDirectory = () => {
                     <Button
                       variant="outline"
                       onClick={() => handleConnect(selectedHr.hr_id, "meeting")}
-                      disabled={!!isSubmittingMode}
+                      disabled={!!isSubmittingMode || selectedHr.connection_status === "pending"}
                     >
                       {isSubmittingMode === "meeting" ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

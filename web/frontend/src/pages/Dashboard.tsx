@@ -8,6 +8,7 @@ import {
   Upload,
   Handshake,
   FileText,
+  KanbanSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -173,21 +174,23 @@ const Dashboard = () => {
           <Card className="h-full border-dashed border-2 border-border/60">
             <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center min-h-[480px]">
               <div className="p-5 rounded-full bg-primary/5 mb-6">
-                <LayoutList className="w-12 h-12 text-primary/40" />
+                <KanbanSquare className="w-12 h-12 text-primary/40" />
               </div>
               <h3 className="text-xl font-semibold text-foreground/80 mb-2">
                 {isHr ? 'Project Task Board' : 'My Tasks'}
               </h3>
               <p className="text-muted-foreground max-w-sm mb-6 px-4">
                 {isHr
-                  ? 'Jira-integrated task board coming soon. Manage client PDFs, extract tasks, and assign to employees — all from here.'
-                  : 'Your assigned Jira tickets and task progress will appear here. Stay tuned for the integrated task management experience.'
+                  ? 'Open the live task board to assign extracted tickets, update due dates, and move work across delivery stages.'
+                  : 'Open the live board to review your assigned tickets and push status updates back to HR.'
                 }
               </p>
-              <div className="flex items-center gap-2 text-sm text-primary/60">
-                <Zap className="w-4 h-4" />
-                <span>Coming Soon</span>
-              </div>
+              <Button asChild variant="outline" className="rounded-2xl">
+                <Link to="/tickets">
+                  <KanbanSquare className="mr-2 h-4 w-4" />
+                  Open Task Board
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
