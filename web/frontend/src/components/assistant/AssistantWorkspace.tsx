@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import AssistantMessageContent, {
+  normalizePreview,
+} from "@/components/assistant/AssistantMessageContent";
 import {
   Clock3,
   History,
@@ -397,16 +398,23 @@ const AssistantWorkspace = () => {
                     ) : null}
 
                     <div
-                      className={`max-w-[min(38rem,100%)] rounded-3xl px-4 py-3 shadow-sm ${isUser
+                      className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${isUser
+                        ? "max-w-[min(38rem,100%)]"
+                        : "max-w-[min(52rem,100%)]"
+                        } ${isUser
                         ? "rounded-tr-md bg-primary text-primary-foreground"
                         : message.error
                           ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
-                          : "rounded-tl-md border border-border/70 bg-background/80 text-foreground"
+                          : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
                         }`}
                     >
-                      <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-p:my-3 prose-ul:my-3 prose-li:my-1 prose-strong:text-inherit prose-a:text-primary dark:prose-invert">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                      </div>
+                      {isUser ? (
+                        <div className="whitespace-pre-wrap text-[15px] leading-7 text-primary-foreground">
+                          {message.content}
+                        </div>
+                      ) : (
+                        <AssistantMessageContent content={message.content} />
+                      )}
 
                       <div className={`mt-3 flex items-center gap-2 text-[11px] ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                         <span>{isUser ? "You" : "Assistant"}</span>
@@ -574,7 +582,9 @@ const AssistantWorkspace = () => {
                       {threads.map((thread) => {
                         const isActive = thread.id === activeThreadId;
                         const latestMessage =
-                          thread.messages[thread.messages.length - 1]?.content || "Empty thread";
+                          normalizePreview(
+                            thread.messages[thread.messages.length - 1]?.content || "Empty thread",
+                          ) || "Empty thread";
 
                         return (
                           <div

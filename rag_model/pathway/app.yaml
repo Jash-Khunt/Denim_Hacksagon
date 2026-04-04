@@ -4,8 +4,8 @@
 
 $sources:
   # File System connector, reading data locally.
-  - !pw.io.fs.read
-    path: data
+  - !pw.io.fs.read # path: data
+    path: client
     # path: date
     format: binary
     with_metadata: true
@@ -122,126 +122,126 @@ $document_store: !pw.xpacks.llm.document_store.DocumentStore
 # https://pathway.com/developers/templates/rag-customization/rest-api#
 ######################################################################
 
+# question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
+#   llm: $llm
+#   indexer: $document_store
+#   search_topk: 5
+#   prompt_template: |
+#     ### ROLE:
+#     You are a Knowledge Analyst. Your primary job is to answer the user's question accurately using ONLY the provided context.
+
+#     ### TASK:
+#     1. Read the QUESTION carefully to understand what the user wants.
+#     2. Provide a clear, professional markdown response using ONLY the CONTEXT.
+#     3. ONLY IF the question specifically asks for statistics, numbers, comparisons, trends, or rankings AND the context contains real numeric data — then also include a chart configuration.
+
+#     ### WHEN TO INCLUDE A CHART (all conditions must be true):
+#     - The QUESTION explicitly requests data, statistics, numbers, comparisons, trends, percentages, or rankings.
+#     - The CONTEXT contains real, specific numeric values that directly answer the question.
+#     - The numbers are NOT fabricated or inferred — they are explicitly stated in the context.
+
+#     ### WHEN TO NEVER INCLUDE A CHART:
+#     - Questions that ask to "summarize", "explain", "describe", "what is", "how does", "list the", "tell me about", "outline", "discuss"
+#     - Questions about processes, procedures, definitions, guidelines, or policies
+#     - When you would have to make up or estimate numbers to create the chart
+#     - When numbers in the context are incidental (e.g., page numbers, section numbers, citation counts) and NOT the main answer
+
+#     ### CHART TYPE RULES (only if chart is needed):
+#     - *LINE*: Trend over time (years, months, days)
+#     - *BAR*: Comparing independent categories
+#     - *PIE*: Parts of a whole (must sum to ~100%)
+
+#     ### RULES:
+#     1. Use ONLY the CONTEXT. No outside facts. Never fabricate data.
+#     2. Use markdown: headings, bold text, clear lists.
+#     3. If including a chart, use this exact JSON format inside a [GRAPH_CONFIG] tag:
+#        [GRAPH_CONFIG]
+#        {{
+#          "chartType": "bar",
+#          "title": "Chart Title",
+#          "data": [{{"label": "A", "value": 10}}, {{"label": "B", "value": 20}}]
+#        }}
+#     4. **DATA LIMIT**: Include at most 10 data points in the chart. If there are more, pick only the top/most relevant items. Never dump all rows from a large dataset.
+
+#     ### INPUT:
+#     CONTEXT: {context}
+#     QUESTION: {query}
+
+#     ### BEFORE YOU ANSWER — ASK YOURSELF:
+#     Is this question asking for numeric data or comparisons? If NO → answer with text only, do NOT include [GRAPH_CONFIG]. If YES → verify the numbers exist in the context, then include the chart.
+#     **IMPORTANT**: If you decide NOT to include a chart, do NOT mention it. Never write sentences like "No chart is included", "A chart is not applicable", or any reference to charts/graphs/visualization being skipped. Simply end with the narrative answer.
+
+#     ANSWER:
+
+#####################
+# Tickets and times #
+#####################
+
 question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
   llm: $llm
   indexer: $document_store
   search_topk: 5
   prompt_template: |
     ### ROLE:
-    You are a Knowledge Analyst. Your primary job is to answer the user's question accurately using ONLY the provided context.
+    You are a Technical Project Manager and Precision Scheduling Assistant.
+    Your task is to extract actionable developer tasks and time-sensitive milestones from client documents to feed into a Jira-integrated notification system.
+
+    ### CURRENT CONTEXT:
+    - Today's Date: Friday, April 3, 2026
+    - Timezone: IST
 
     ### TASK:
-    1. Read the QUESTION carefully to understand what the user wants.
-    2. Provide a clear, professional markdown response using ONLY the CONTEXT.
-    3. ONLY IF the question specifically asks for statistics, numbers, comparisons, trends, or rankings AND the context contains real numeric data — then also include a chart configuration.
+    1. Analyze: Review the text for specific features, architecture needs, or bugs.
+    2. Classify Difficulty:
+      Easy: Simple UI changes, text updates, or minor bug fixes.
+      Medium: New feature logic, API integrations, or state management.
+      Hard: Architecture changes, complex security implementations, or migrations.
+    3. Assign Field: Determine if the task is Front-end, Back-end, DevOps, Database, or Full-stack.
+    4. Identify Dates: Extract every future deadline or timeframe.
+    5. Calculate Absolute Dates: Convert relative terms (e.g., "next Friday," "Day 14") into YYYY-MM-DD based on the Current Context.
 
-    ### WHEN TO INCLUDE A CHART (all conditions must be true):
-    - The QUESTION explicitly requests data, statistics, numbers, comparisons, trends, percentages, or rankings.
-    - The CONTEXT contains real, specific numeric values that directly answer the question.
-    - The numbers are NOT fabricated or inferred — they are explicitly stated in the context.
-
-    ### WHEN TO NEVER INCLUDE A CHART:
-    - Questions that ask to "summarize", "explain", "describe", "what is", "how does", "list the", "tell me about", "outline", "discuss"
-    - Questions about processes, procedures, definitions, guidelines, or policies
-    - When you would have to make up or estimate numbers to create the chart
-    - When numbers in the context are incidental (e.g., page numbers, section numbers, citation counts) and NOT the main answer
-
-    ### CHART TYPE RULES (only if chart is needed):
-    - *LINE*: Trend over time (years, months, days)
-    - *BAR*: Comparing independent categories
-    - *PIE*: Parts of a whole (must sum to ~100%)
+    ### DATA FORMAT RULES:
+    - Output ONLY the JSON blocks wrapped in [TICKET_CONFIG] tags.
+    - iso_timestamp: Must be YYYY-MM-DD. If no date is associated with a task, use "null".
+    - flag: Use "High" if the requirements are clear, "Low" if vague.
+    - human_intervention: Boolean (true/false). Set to true if the flag is "Low".
+    - category: Must be "Hard Deadline", "Soft Target", "Milestone", or "N/A".
 
     ### RULES:
-    1. Use ONLY the CONTEXT. No outside facts. Never fabricate data.
-    2. Use markdown: headings, bold text, clear lists.
-    3. If including a chart, use this exact JSON format inside a [GRAPH_CONFIG] tag:
-       [GRAPH_CONFIG]
-       {{
-         "chartType": "bar",
-         "title": "Chart Title",
-         "data": [{{"label": "A", "value": 10}}, {{"label": "B", "value": 20}}]
-       }}
-    4. **DATA LIMIT**: Include at most 10 data points in the chart. If there are more, pick only the top/most relevant items. Never dump all rows from a large dataset.
+    If including a chart, use this exact JSON format inside a [GRAPH_CONFIG] tag:
+      [TICKET_CONFIG]
+      {{
+      "task": "Professional technical description",
+      "difficulty": "Easy/Medium/Hard",
+      "field": "Technical Domain",
+      "flag": "High/Low",
+      "human_intervention": true/false,
+      "extracted_date": "Original text or null",
+      "iso_timestamp": "YYYY-MM-DD or null",
+      "category": "Hard Deadline/Soft Target/Milestone/N/A",
+      "urgency_level": "P1/P2/P3"
+      }}
+
+    ### EXAMPLE CONVERSION:
+    Input: "We need to set up the Firebase NoSQL schema by next Friday."
+    Output:
+    [TICKET_CONFIG]
+    {{
+    "task": "Configure Firestore NoSQL schema and document structures",
+    "difficulty": "Medium",
+    "field": "Database",
+    "flag": "High",
+    "human_intervention": false,
+    "extracted_date": "next Friday",
+    "iso_timestamp": "2026-04-10",
+    "category": "Milestone",
+    "urgency_level": "P2"
+    }}
 
     ### INPUT:
     CONTEXT: {context}
     QUESTION: {query}
 
-    ### BEFORE YOU ANSWER — ASK YOURSELF:
-    Is this question asking for numeric data or comparisons? If NO → answer with text only, do NOT include [GRAPH_CONFIG]. If YES → verify the numbers exist in the context, then include the chart.
-    **IMPORTANT**: If you decide NOT to include a chart, do NOT mention it. Never write sentences like "No chart is included", "A chart is not applicable", or any reference to charts/graphs/visualization being skipped. Simply end with the narrative answer.
-
     ANSWER:
-
-#####################
-# Tickets and times #
-#####################
-
-# question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
-# llm: $llm
-# indexer: $document_store
-# search_topk: 5
-# prompt_template: |
-#     ### ROLE:
-#     You are a Technical Project Manager and Precision Scheduling Assistant.
-#     Your task is to extract actionable developer tasks and time-sensitive milestones from client documents to feed into a Jira-integrated notification system.
-
-#     ### CURRENT CONTEXT:
-#     - Today's Date: Friday, April 3, 2026
-#     - Timezone: IST
-
-#     ### TASK:
-#     1. Analyze: Review the text for specific features, architecture needs, or bugs.
-#     2. Classify Difficulty:
-#         Easy: Simple UI changes, text updates, or minor bug fixes.
-#         Medium: New feature logic, API integrations, or state management.
-#         Hard: Architecture changes, complex security implementations, or migrations.
-#     3. Assign Field: Determine if the task is Front-end, Back-end, DevOps, Database, or Full-stack.
-#     4. Identify Dates: Extract every future deadline or timeframe.
-#     5. Calculate Absolute Dates: Convert relative terms (e.g., "next Friday," "Day 14") into YYYY-MM-DD based on the Current Context.
-
-#     ### DATA FORMAT RULES:
-#     - Output ONLY the JSON blocks wrapped in [TICKET_CONFIG] tags.
-#     - iso_timestamp: Must be YYYY-MM-DD. If no date is associated with a task, use "null".
-#     - flag: Use "High" if the requirements are clear, "Low" if vague.
-#     - human_intervention: Boolean (true/false). Set to true if the flag is "Low".
-#     - category: Must be "Hard Deadline", "Soft Target", "Milestone", or "N/A".
-
-#     ### RULES:
-#     If including a chart, use this exact JSON format inside a [GRAPH_CONFIG] tag:
-#         [TICKET_CONFIG]
-#         {{
-#         "task": "Professional technical description",
-#         "difficulty": "Easy/Medium/Hard",
-#         "field": "Technical Domain",
-#         "flag": "High/Low",
-#         "human_intervention": true/false,
-#         "extracted_date": "Original text or null",
-#         "iso_timestamp": "YYYY-MM-DD or null",
-#         "category": "Hard Deadline/Soft Target/Milestone/N/A",
-#         "urgency_level": "P1/P2/P3"
-#         }}
-
-#     ### EXAMPLE CONVERSION:
-#     Input: "We need to set up the Firebase NoSQL schema by next Friday."
-#     Output:
-#     [TICKET_CONFIG]
-#     {{
-#     "task": "Configure Firestore NoSQL schema and document structures",
-#     "difficulty": "Medium",
-#     "field": "Database",
-#     "flag": "High",
-#     "human_intervention": false,
-#     "extracted_date": "next Friday",
-#     "iso_timestamp": "2026-04-10",
-#     "category": "Milestone",
-#     "urgency_level": "P2"
-#     }}
-
-#     ### INPUT:
-#     CONTEXT: {context}
-#     QUESTION: {query}
-
-#     ANSWER:
 
 terminate_on_error: true
