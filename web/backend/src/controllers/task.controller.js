@@ -1,5 +1,10 @@
 import { pool } from "../lib/db.js";
-import { createTasksFromBotOutput, parseBotTasks } from "../lib/task-workflow.js";
+import {
+  createTasksFromBotOutput,
+  parseBotTasks,
+} from "../lib/task-workflow.js";
+import { isMailConfigured, sendTaskDueReminderEmail } from "../lib/mailer.js";
+import { sendRemindersForUpdatedTask } from "../lib/task-scheduler.js";
 
 const getRoleScope = (user) => {
   if (user.role === "hr") {
@@ -171,6 +176,121 @@ export const getTaskById = async (req, res) => {
   }
 };
 
+export const createTask = async (req, res) => {
+  if (req.user.role !== "hr") {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  const {
+    client_id,
+    assignee_emp_id,
+    title,
+    description,
+    difficulty,
+    field,
+    due_date,
+    priority,
+  } = req.body;
+
+  if (!client_id || !title || !field) {
+    return res.status(400).json({
+      message: "client_id, title, and field are required",
+    });
+  }
+
+  const normalizedDifficulty = ["Easy", "Medium", "Hard"].includes(difficulty)
+    ? difficulty
+    : "Medium";
+  const normalizedPriority = ["Low", "Medium", "High"].includes(priority)
+    ? priority
+    : "Medium";
+
+  try {
+    const connectionResult = await pool.query(
+      `SELECT 1
+      FROM client_hr_connections
+      WHERE client_id = $1
+        AND hr_id = $2
+        AND status = 'connected'
+      LIMIT 1`,
+      [client_id, req.user.hr_id],
+    );
+
+    if (!connectionResult.rows.length) {
+      return res.status(400).json({
+        message: "Selected client is not connected to this HR account",
+      });
+    }
+
+    let assigneeId = null;
+    if (assignee_emp_id) {
+      const employeeResult = await pool.query(
+        `SELECT emp_id
+        FROM employee
+        WHERE emp_id = $1 AND hr_id = $2`,
+        [assignee_emp_id, req.user.hr_id],
+      );
+
+      if (!employeeResult.rows.length) {
+        return res.status(400).json({ message: "Invalid employee assignee" });
+      }
+
+      assigneeId = assignee_emp_id;
+    }
+
+    const ticketNumberResult = await pool.query(
+      "SELECT nextval('project_task_ticket_seq') AS ticket_number",
+    );
+    const ticketNumber = ticketNumberResult.rows[0].ticket_number;
+    const taskKey = `SCRUM-${ticketNumber}`;
+
+    const insertResult = await pool.query(
+      `INSERT INTO project_tasks (
+        client_id,
+        hr_id,
+        assignee_emp_id,
+        ticket_number,
+        task_key,
+        title,
+        description,
+        difficulty,
+        field,
+        confidence_flag,
+        human_intervention,
+        status,
+        assignment_mode,
+        priority,
+        due_date,
+        source,
+        created_by_role
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, 'High', FALSE, 'todo', $10, $11, $12, 'manual', 'hr'
+      )
+      RETURNING *`,
+      [
+        client_id,
+        req.user.hr_id,
+        assigneeId,
+        ticketNumber,
+        taskKey,
+        title.trim(),
+        description?.trim() || null,
+        normalizedDifficulty,
+        field.trim(),
+        assigneeId ? "manual" : "unassigned",
+        normalizedPriority,
+        due_date || null,
+      ],
+    );
+
+    return res.status(201).json({ task: insertResult.rows[0] });
+  } catch (error) {
+    console.error("Error in createTask:", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 export const updateTask = async (req, res) => {
   const { taskId } = req.params;
   const {
@@ -272,6 +392,18 @@ export const updateTask = async (req, res) => {
         hasAssigneeField,
       ],
     );
+
+    // Check if due_date changed and trigger reminders asynchronously
+    if (due_date && existingTask.due_date) {
+      sendRemindersForUpdatedTask(existingTask.due_date, due_date).catch(
+        (err) =>
+          console.error(
+            "Error checking reminders for updated task:",
+            err.message,
+          ),
+      );
+    }
+
     res.status(200).json({ task: result.rows[0] });
   } catch (error) {
     console.error("Error in updateTask:", error.message);
@@ -350,11 +482,14 @@ export const importTasksFromBot = async (req, res) => {
 
     if (!upload.hr_id) {
       return res.status(400).json({
-        message: "This upload must be connected to an HR partner before task creation",
+        message:
+          "This upload must be connected to an HR partner before task creation",
       });
     }
 
-    const parsedTasks = Array.isArray(tasks) ? tasks : parseBotTasks(raw_response);
+    const parsedTasks = Array.isArray(tasks)
+      ? tasks
+      : parseBotTasks(raw_response);
     const db = await pool.connect();
 
     try {
@@ -391,5 +526,106 @@ export const importTasksFromBot = async (req, res) => {
     res
       .status(statusCode)
       .json({ message: error.message || "Internal Server Error" });
+  }
+};
+
+export const sendDueSoonTaskReminders = async (req, res) => {
+  if (req.user.role !== "hr") {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  if (!isMailConfigured()) {
+    return res.status(400).json({
+      message:
+        "SMTP is not configured. Set SMTP_* vars or HR_GMAIL_USER and HR_GMAIL_APP_PASSWORD (optionally SMTP_FROM).",
+    });
+  }
+
+  try {
+    const reminderType = req.body?.type === "overdue" ? "overdue" : "upcoming";
+    const datePredicate =
+      reminderType === "overdue"
+        ? `t.due_date >= CURRENT_DATE - INTERVAL '2 day'
+        AND t.due_date < CURRENT_DATE - INTERVAL '1 day'`
+        : `t.due_date >= CURRENT_DATE + INTERVAL '2 day'
+        AND t.due_date < CURRENT_DATE + INTERVAL '3 day'`;
+    const reminderText =
+      reminderType === "overdue" ? "overdue by 2 days" : "due in 2 days";
+
+    const result = await pool.query(
+      `SELECT
+        e.emp_id,
+        e.name AS employee_name,
+        e.email AS employee_email,
+        t.task_id,
+        t.task_key,
+        t.title,
+        TO_CHAR(t.due_date, 'YYYY-MM-DD') AS due_date
+      FROM project_tasks t
+      JOIN employee e
+        ON e.emp_id = t.assignee_emp_id
+      WHERE t.hr_id = $1
+        AND t.assignee_emp_id IS NOT NULL
+        AND t.status <> 'done'
+        AND ${datePredicate}
+      ORDER BY e.emp_id, t.due_date, t.task_key`,
+      [req.user.hr_id],
+    );
+
+    if (!result.rows.length) {
+      const emptyMessage =
+        reminderType === "overdue"
+          ? "No assigned tasks overdue by 2 days."
+          : "No assigned tasks due in 2 days.";
+      return res.status(200).json({
+        message: emptyMessage,
+        employeesNotified: 0,
+        tasksIncluded: 0,
+      });
+    }
+
+    const tasksByEmployee = new Map();
+    for (const row of result.rows) {
+      if (!tasksByEmployee.has(row.emp_id)) {
+        tasksByEmployee.set(row.emp_id, {
+          email: row.employee_email,
+          name: row.employee_name || "Employee",
+          tasks: [],
+        });
+      }
+      tasksByEmployee.get(row.emp_id).tasks.push({
+        task_id: row.task_id,
+        task_key: row.task_key,
+        title: row.title,
+        due_date: row.due_date,
+      });
+    }
+
+    let employeesNotified = 0;
+
+    for (const employee of tasksByEmployee.values()) {
+      if (!employee.email) {
+        continue;
+      }
+
+      await sendTaskDueReminderEmail({
+        to: employee.email,
+        employeeName: employee.name,
+        tasks: employee.tasks,
+        reminderText,
+      });
+
+      employeesNotified += 1;
+    }
+
+    return res.status(200).json({
+      message: "Due-date reminder emails sent.",
+      type: reminderType,
+      employeesNotified,
+      tasksIncluded: result.rows.length,
+    });
+  } catch (error) {
+    console.error("Error in sendDueSoonTaskReminders:", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };

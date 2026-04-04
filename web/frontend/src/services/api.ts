@@ -153,12 +153,15 @@ export const connectionAPI = {
     connectionId: string,
     status: "connected" | "declined",
   ) => {
-    const response = await fetch(`${API_BASE_URL}/connections/${connectionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/connections/${connectionId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      },
+    );
     return handleResponse<{ message: string; connection: ClientConnection }>(
       response,
     );
@@ -179,6 +182,25 @@ export const taskAPI = {
     const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
       method: "GET",
       credentials: "include",
+    });
+    return handleResponse<{ task: ProjectTask }>(response);
+  },
+
+  createTask: async (data: {
+    client_id: string;
+    assignee_emp_id?: string;
+    title: string;
+    description?: string;
+    difficulty?: "Easy" | "Medium" | "Hard";
+    field: string;
+    due_date?: string;
+    priority?: "Low" | "Medium" | "High";
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
     });
     return handleResponse<{ task: ProjectTask }>(response);
   },
@@ -215,6 +237,26 @@ export const taskAPI = {
       body: JSON.stringify(payload),
     });
     return handleResponse<{ message: string; tasks: ProjectTask[] }>(response);
+  },
+
+  sendDueInTwoDaysReminders: async (
+    type: "upcoming" | "overdue" = "upcoming",
+  ) => {
+    const response = await fetch(
+      `${API_BASE_URL}/tasks/reminders/due-in-two-days`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type }),
+      },
+    );
+    return handleResponse<{
+      message: string;
+      type?: "upcoming" | "overdue";
+      employeesNotified: number;
+      tasksIncluded: number;
+    }>(response);
   },
 };
 
@@ -265,7 +307,11 @@ export const jiraAPI = {
         url: string;
         assignmentStatus?: string;
       }>;
-      errors?: Array<{ task_key?: string; title: string; error: string | string[] }>;
+      errors?: Array<{
+        task_key?: string;
+        title: string;
+        error: string | string[];
+      }>;
     }>(response);
   },
 };

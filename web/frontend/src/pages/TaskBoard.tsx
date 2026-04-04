@@ -2,14 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { employeeAPI, taskAPI } from "@/services/api";
-import { Employee, ProjectTask, TaskStatus } from "@/types";
+import { connectionAPI, employeeAPI, taskAPI } from "@/services/api";
+import { ClientConnection, Employee, ProjectTask, TaskStatus } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
@@ -27,31 +39,31 @@ const statusColumns: Array<{
   accent: string;
   badgeClass: string;
 }> = [
-    {
-      key: "todo",
-      label: "To Do",
-      accent: "border-[#fdba74]/50 bg-[#fff7ed]",
-      badgeClass: "border border-[#fdba74]/45 bg-[#ffedd5] text-[#9a3412]",
-    },
-    {
-      key: "in_progress",
-      label: "In Progress",
-      accent: "border-[#fb923c]/45 bg-[#ffedd5]",
-      badgeClass: "border border-[#fb923c]/45 bg-[#fed7aa] text-[#9a3412]",
-    },
-    {
-      key: "review",
-      label: "Review",
-      accent: "border-[#f97316]/45 bg-[#fed7aa]",
-      badgeClass: "border border-[#f97316]/40 bg-[#fdba74]/45 text-[#7c2d12]",
-    },
-    {
-      key: "done",
-      label: "Done",
-      accent: "border-[#ea580c]/40 bg-[#ffedd5]/80",
-      badgeClass: "border border-[#ea580c]/35 bg-[#fb923c]/35 text-[#7c2d12]",
-    },
-  ];
+  {
+    key: "todo",
+    label: "To Do",
+    accent: "border-[#fdba74]/50 bg-[#fff7ed]",
+    badgeClass: "border border-[#fdba74]/45 bg-[#ffedd5] text-[#9a3412]",
+  },
+  {
+    key: "in_progress",
+    label: "In Progress",
+    accent: "border-[#fb923c]/45 bg-[#ffedd5]",
+    badgeClass: "border border-[#fb923c]/45 bg-[#fed7aa] text-[#9a3412]",
+  },
+  {
+    key: "review",
+    label: "Review",
+    accent: "border-[#f97316]/45 bg-[#fed7aa]",
+    badgeClass: "border border-[#f97316]/40 bg-[#fdba74]/45 text-[#7c2d12]",
+  },
+  {
+    key: "done",
+    label: "Done",
+    accent: "border-[#ea580c]/40 bg-[#ffedd5]/80",
+    badgeClass: "border border-[#ea580c]/35 bg-[#fb923c]/35 text-[#7c2d12]",
+  },
+];
 
 const TaskBoard = () => {
   const { toast } = useToast();
@@ -60,11 +72,16 @@ const TaskBoard = () => {
 
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [connectedClients, setConnectedClients] = useState<ClientConnection[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -75,6 +92,16 @@ const TaskBoard = () => {
     due_date: "",
     assignee_emp_id: "unassigned",
   });
+  const [createTaskForm, setCreateTaskForm] = useState({
+    client_id: "",
+    assignee_emp_id: "unassigned",
+    title: "",
+    description: "",
+    difficulty: "Medium",
+    priority: "Medium",
+    field: "",
+    due_date: "",
+  });
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "Please try again.";
@@ -84,10 +111,21 @@ const TaskBoard = () => {
       setIsLoading(true);
       const [taskResponse, employeeResponse] = await Promise.all([
         taskAPI.getTasks(),
-        isHr ? employeeAPI.getAllEmployees() : Promise.resolve({ employees: [] }),
+        isHr
+          ? employeeAPI.getAllEmployees()
+          : Promise.resolve({ employees: [] }),
       ]);
       setTasks(taskResponse.tasks);
       setEmployees(employeeResponse.employees || []);
+
+      if (isHr) {
+        const connectionResponse = await connectionAPI.getHrConnections();
+        const connected = (connectionResponse.connections || []).filter(
+          (connection) =>
+            connection.status === "connected" && connection.client_id,
+        );
+        setConnectedClients(connected);
+      }
     } catch (error: unknown) {
       toast({
         title: "Could not load task board",
@@ -160,26 +198,27 @@ const TaskBoard = () => {
       setIsSaving(true);
       const payload = isHr
         ? {
-          title: taskForm.title,
-          description: taskForm.description,
-          status: taskForm.status,
-          difficulty: taskForm.difficulty,
-          field: taskForm.field,
-          due_date: taskForm.due_date || null,
-          assignee_emp_id:
-            taskForm.assignee_emp_id === "unassigned"
-              ? ""
-              : taskForm.assignee_emp_id,
-        }
+            title: taskForm.title,
+            description: taskForm.description,
+            status: taskForm.status,
+            difficulty: taskForm.difficulty,
+            field: taskForm.field,
+            due_date: taskForm.due_date || null,
+            assignee_emp_id:
+              taskForm.assignee_emp_id === "unassigned"
+                ? ""
+                : taskForm.assignee_emp_id,
+          }
         : {
-          status: taskForm.status,
-        };
+            status: taskForm.status,
+          };
 
       await taskAPI.updateTask(selectedTaskId, payload as Partial<ProjectTask>);
       await Promise.all([loadBoard(), refreshTask()]);
       toast({
         title: "Ticket updated",
-        description: "The task board has been refreshed with your latest changes.",
+        description:
+          "The task board has been refreshed with your latest changes.",
       });
     } catch (error: unknown) {
       toast({
@@ -215,8 +254,69 @@ const TaskBoard = () => {
     }
   };
 
+  const handleCreateTask = async () => {
+    if (!isHr) return;
+
+    if (
+      !createTaskForm.client_id ||
+      !createTaskForm.title.trim() ||
+      !createTaskForm.field.trim()
+    ) {
+      toast({
+        title: "Missing details",
+        description: "Please select a client and fill title + field.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingTask(true);
+      await taskAPI.createTask({
+        client_id: createTaskForm.client_id,
+        assignee_emp_id:
+          createTaskForm.assignee_emp_id === "unassigned"
+            ? undefined
+            : createTaskForm.assignee_emp_id,
+        title: createTaskForm.title.trim(),
+        description: createTaskForm.description.trim() || undefined,
+        difficulty: createTaskForm.difficulty as "Easy" | "Medium" | "Hard",
+        priority: createTaskForm.priority as "Low" | "Medium" | "High",
+        field: createTaskForm.field.trim(),
+        due_date: createTaskForm.due_date || undefined,
+      });
+
+      setCreateTaskForm({
+        client_id: createTaskForm.client_id,
+        assignee_emp_id: "unassigned",
+        title: "",
+        description: "",
+        difficulty: "Medium",
+        priority: "Medium",
+        field: "",
+        due_date: "",
+      });
+      await loadBoard();
+      toast({
+        title: "Task created",
+        description: "Manual task created and added to the board.",
+      });
+      setIsCreateTaskOpen(false);
+    } catch (error: unknown) {
+      toast({
+        title: "Could not create task",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
   const totalTasks = tasks.length;
-  const autoAssignedCount = tasks.filter((task) => task.assignment_mode === "auto").length;
+  const autoAssignedCount = tasks.filter(
+    (task) => task.assignment_mode === "auto",
+  ).length;
   const reviewCount = tasks.filter((task) => task.human_intervention).length;
 
   return (
@@ -231,7 +331,8 @@ const TaskBoard = () => {
           <CircleDashed className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-lg font-semibold">No tickets yet</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Once a client uploads a PDF and the chatbot returns structured task JSON, tickets will appear here.
+            Once a client uploads a PDF and the chatbot returns structured task
+            JSON, tickets will appear here.
           </p>
         </div>
       ) : (
@@ -247,7 +348,9 @@ const TaskBoard = () => {
                     <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9a3412]">
                       {column.label}
                     </h2>
-                    <Badge className={`rounded-full border-0 px-2 py-0.5 text-[11px] ${column.badgeClass}`}>
+                    <Badge
+                      className={`rounded-full border-0 px-2 py-0.5 text-[11px] ${column.badgeClass}`}
+                    >
                       {column.items.length}
                     </Badge>
                   </div>
@@ -265,7 +368,9 @@ const TaskBoard = () => {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {task.title}
+                          </p>
                           <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                             {task.task_key}
                           </p>
@@ -279,7 +384,9 @@ const TaskBoard = () => {
                         <div className="flex items-center gap-1.5">
                           <Building2 className="h-3.5 w-3.5" />
                           <span className="truncate">
-                            {task.client_company_name || task.client_name || "Client"}
+                            {task.client_company_name ||
+                              task.client_name ||
+                              "Client"}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -288,8 +395,19 @@ const TaskBoard = () => {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <UserCircle2 className="h-3.5 w-3.5" />
-                          <span className="truncate">{task.assignee_name || "Unassigned"}</span>
+                          <span className="truncate">
+                            {task.assignee_name || "Unassigned"}
+                          </span>
                         </div>
+                        {task.due_date && (
+                          <div className="flex items-center gap-1.5 text-orange-600/80">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            <span className="truncate">
+                              Due:{" "}
+                              {format(new Date(task.due_date), "MMM d, yyyy")}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -300,7 +418,206 @@ const TaskBoard = () => {
         </section>
       )}
 
-      <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && closeTask()}>
+      <Sheet open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto border-border/60 bg-card px-0 sm:max-w-[840px]"
+        >
+          <div className="space-y-6 p-6">
+            <SheetHeader className="space-y-2 text-left">
+              <SheetTitle className="text-2xl leading-tight text-foreground">
+                Create Manual Task
+              </SheetTitle>
+              <SheetDescription className="text-muted-foreground">
+                Build a complete task and assign it directly to an employee.
+              </SheetDescription>
+            </SheetHeader>
+
+            {connectedClients.length === 0 ? (
+              <div className="rounded-[1.2rem] border border-dashed border-border p-4 text-sm text-muted-foreground">
+                No connected clients available. Approve client connections
+                first, then create manual tasks.
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Client</Label>
+                <Select
+                  value={createTaskForm.client_id}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({ ...prev, client_id: value }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue placeholder="Select connected client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connectedClients.map((client) => (
+                      <SelectItem
+                        key={client.connection_id}
+                        value={client.client_id || ""}
+                      >
+                        {client.name} • {client.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Assignee</Label>
+                <Select
+                  value={createTaskForm.assignee_emp_id}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      assignee_emp_id: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem
+                        key={employee.emp_id}
+                        value={employee.emp_id || ""}
+                      >
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Difficulty</Label>
+                <Select
+                  value={createTaskForm.difficulty}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      difficulty: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Easy">Easy</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Priority</Label>
+                <Select
+                  value={createTaskForm.priority}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Title</Label>
+                <Input
+                  value={createTaskForm.title}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter task title"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Field</Label>
+                <Input
+                  value={createTaskForm.field}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      field: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Backend, UI, QA"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Description</Label>
+                <Textarea
+                  rows={4}
+                  value={createTaskForm.description}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Add context and expected outcome"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Due date</Label>
+                <Input
+                  type="date"
+                  value={createTaskForm.due_date}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      due_date: e.target.value,
+                    }))
+                  }
+                  className="border-border/60 bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={handleCreateTask}
+                disabled={isCreatingTask || connectedClients.length === 0}
+                className="rounded-xl"
+              >
+                {isCreatingTask ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Create Task
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={!!selectedTaskId}
+        onOpenChange={(open) => !open && closeTask()}
+      >
         <SheetContent
           side="right"
           className="w-full overflow-y-auto border-border/60 bg-card px-0 sm:max-w-[840px]"
@@ -328,7 +645,8 @@ const TaskBoard = () => {
                   {selectedTask.title}
                 </SheetTitle>
                 <SheetDescription className="text-muted-foreground">
-                  {selectedTask.client_name} • {selectedTask.client_company_name}
+                  {selectedTask.client_name} •{" "}
+                  {selectedTask.client_company_name}
                 </SheetDescription>
               </SheetHeader>
 
@@ -341,16 +659,23 @@ const TaskBoard = () => {
                         <Input
                           value={taskForm.title}
                           onChange={(e) =>
-                            setTaskForm((prev) => ({ ...prev, title: e.target.value }))
+                            setTaskForm((prev) => ({
+                              ...prev,
+                              title: e.target.value,
+                            }))
                           }
                           className="border-border/60 bg-background"
                         />
                       ) : (
-                        <p className="text-sm leading-7 text-foreground/85">{selectedTask.title}</p>
+                        <p className="text-sm leading-7 text-foreground/85">
+                          {selectedTask.title}
+                        </p>
                       )}
                     </div>
                     <div className="mt-5 space-y-2">
-                      <Label className="text-muted-foreground">Description</Label>
+                      <Label className="text-muted-foreground">
+                        Description
+                      </Label>
                       {isHr ? (
                         <Textarea
                           rows={8}
@@ -365,7 +690,8 @@ const TaskBoard = () => {
                         />
                       ) : (
                         <p className="text-sm leading-7 text-foreground/85">
-                          {selectedTask.description || "No description added yet."}
+                          {selectedTask.description ||
+                            "No description added yet."}
                         </p>
                       )}
                     </div>
@@ -414,7 +740,10 @@ const TaskBoard = () => {
                                 {item.author_name}
                               </p>
                               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                                {format(new Date(item.created_at), "dd MMM yyyy")}
+                                {format(
+                                  new Date(item.created_at),
+                                  "dd MMM yyyy",
+                                )}
                               </p>
                             </div>
                             <p className="mt-2 text-sm leading-6 text-foreground/75">
@@ -429,7 +758,9 @@ const TaskBoard = () => {
 
                 <div className="space-y-4">
                   <div className="rounded-[1.5rem] border border-border/60 bg-background/60 p-5">
-                    <p className="text-sm font-medium text-foreground/80">Details</p>
+                    <p className="text-sm font-medium text-foreground/80">
+                      Details
+                    </p>
                     <div className="mt-4 space-y-4">
                       <div className="space-y-2">
                         <Label className="text-muted-foreground">Status</Label>
@@ -455,7 +786,9 @@ const TaskBoard = () => {
                       {isHr && (
                         <>
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Assignee</Label>
+                            <Label className="text-muted-foreground">
+                              Assignee
+                            </Label>
                             <Select
                               value={taskForm.assignee_emp_id}
                               onValueChange={(value) =>
@@ -469,7 +802,9 @@ const TaskBoard = () => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                <SelectItem value="unassigned">
+                                  Unassigned
+                                </SelectItem>
                                 {employees.map((employee) => (
                                   <SelectItem
                                     key={employee.emp_id}
@@ -483,11 +818,16 @@ const TaskBoard = () => {
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Difficulty</Label>
+                            <Label className="text-muted-foreground">
+                              Difficulty
+                            </Label>
                             <Select
                               value={taskForm.difficulty}
                               onValueChange={(value) =>
-                                setTaskForm((prev) => ({ ...prev, difficulty: value }))
+                                setTaskForm((prev) => ({
+                                  ...prev,
+                                  difficulty: value,
+                                }))
                               }
                             >
                               <SelectTrigger className="border-border/60 bg-background">
@@ -502,18 +842,25 @@ const TaskBoard = () => {
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Field</Label>
+                            <Label className="text-muted-foreground">
+                              Field
+                            </Label>
                             <Input
                               value={taskForm.field}
                               onChange={(e) =>
-                                setTaskForm((prev) => ({ ...prev, field: e.target.value }))
+                                setTaskForm((prev) => ({
+                                  ...prev,
+                                  field: e.target.value,
+                                }))
                               }
                               className="border-border/60 bg-background"
                             />
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Due date</Label>
+                            <Label className="text-muted-foreground">
+                              Due date
+                            </Label>
                             <Input
                               type="date"
                               value={taskForm.due_date}
@@ -532,17 +879,23 @@ const TaskBoard = () => {
                   </div>
 
                   <div className="rounded-[1.5rem] border border-border/60 bg-background/60 p-5">
-                    <p className="text-sm font-medium text-foreground/80">Context</p>
+                    <p className="text-sm font-medium text-foreground/80">
+                      Context
+                    </p>
                     <div className="mt-4 space-y-3 text-sm text-foreground/75">
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4" />
-                        <span>{selectedTask.client_company_name || "Client company"}</span>
+                        <span>
+                          {selectedTask.client_company_name || "Client company"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
                         <span>
                           Confidence {selectedTask.confidence_flag}
-                          {selectedTask.human_intervention ? " • Needs review" : ""}
+                          {selectedTask.human_intervention
+                            ? " • Needs review"
+                            : ""}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -555,7 +908,9 @@ const TaskBoard = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <UserCircle2 className="h-4 w-4" />
-                        <span>{selectedTask.assignee_name || "Unassigned"}</span>
+                        <span>
+                          {selectedTask.assignee_name || "Unassigned"}
+                        </span>
                       </div>
                     </div>
                   </div>
