@@ -27,31 +27,31 @@ const statusColumns: Array<{
   accent: string;
   badgeClass: string;
 }> = [
-  {
-    key: "todo",
-    label: "To Do",
-    accent: "border-info/30 bg-info/10",
-    badgeClass: "bg-info/15 text-info border border-info/20",
-  },
-  {
-    key: "in_progress",
-    label: "In Progress",
-    accent: "border-warning/30 bg-warning/10",
-    badgeClass: "bg-warning/15 text-warning border border-warning/20",
-  },
-  {
-    key: "review",
-    label: "Review",
-    accent: "border-primary/30 bg-primary/10",
-    badgeClass: "bg-primary/15 text-primary border border-primary/20",
-  },
-  {
-    key: "done",
-    label: "Done",
-    accent: "border-success/30 bg-success/10",
-    badgeClass: "bg-success/15 text-success border border-success/20",
-  },
-];
+    {
+      key: "todo",
+      label: "To Do",
+      accent: "border-[#fdba74]/50 bg-[#fff7ed]",
+      badgeClass: "border border-[#fdba74]/45 bg-[#ffedd5] text-[#9a3412]",
+    },
+    {
+      key: "in_progress",
+      label: "In Progress",
+      accent: "border-[#fb923c]/45 bg-[#ffedd5]",
+      badgeClass: "border border-[#fb923c]/45 bg-[#fed7aa] text-[#9a3412]",
+    },
+    {
+      key: "review",
+      label: "Review",
+      accent: "border-[#f97316]/45 bg-[#fed7aa]",
+      badgeClass: "border border-[#f97316]/40 bg-[#fdba74]/45 text-[#7c2d12]",
+    },
+    {
+      key: "done",
+      label: "Done",
+      accent: "border-[#ea580c]/40 bg-[#ffedd5]/80",
+      badgeClass: "border border-[#ea580c]/35 bg-[#fb923c]/35 text-[#7c2d12]",
+    },
+  ];
 
 const TaskBoard = () => {
   const { toast } = useToast();
@@ -160,20 +160,20 @@ const TaskBoard = () => {
       setIsSaving(true);
       const payload = isHr
         ? {
-            title: taskForm.title,
-            description: taskForm.description,
-            status: taskForm.status,
-            difficulty: taskForm.difficulty,
-            field: taskForm.field,
-            due_date: taskForm.due_date || null,
-            assignee_emp_id:
-              taskForm.assignee_emp_id === "unassigned"
-                ? ""
-                : taskForm.assignee_emp_id,
-          }
+          title: taskForm.title,
+          description: taskForm.description,
+          status: taskForm.status,
+          difficulty: taskForm.difficulty,
+          field: taskForm.field,
+          due_date: taskForm.due_date || null,
+          assignee_emp_id:
+            taskForm.assignee_emp_id === "unassigned"
+              ? ""
+              : taskForm.assignee_emp_id,
+        }
         : {
-            status: taskForm.status,
-          };
+          status: taskForm.status,
+        };
 
       await taskAPI.updateTask(selectedTaskId, payload as Partial<ProjectTask>);
       await Promise.all([loadBoard(), refreshTask()]);
@@ -220,46 +220,21 @@ const TaskBoard = () => {
   const reviewCount = tasks.filter((task) => task.human_intervention).length;
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-card shadow-lg">
-        <div className="grid gap-0 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="relative overflow-hidden px-8 py-9">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,130,77,0.22),transparent_42%),linear-gradient(145deg,rgba(255,255,255,0.6),rgba(255,247,242,0.92))]" />
-            <div className="relative space-y-5">
-              <Badge className="w-fit rounded-full bg-primary/15 px-4 py-1 text-primary hover:bg-primary/15">
-                Delivery Board
-              </Badge>
-              <h1 className="max-w-3xl text-4xl font-bold leading-tight">
-                {isHr
-                  ? "Run the intake pipeline like a Jira board: review tickets, assign people, and move delivery forward."
-                  : "Track your assigned delivery tickets, update status, and keep the HR team aligned."}
-              </h1>
-              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-                The board below is fed by client uploads and chatbot-generated ticket output.
-                High-confidence tasks can land with assignees automatically, while low-confidence work
-                stays visible for HR review and manual routing.
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-border/60 bg-gradient-to-br from-accent/70 via-background to-background px-8 py-9 xl:border-l xl:border-t-0">
-            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
-              <div className="rounded-[1.35rem] border border-border/60 bg-background/80 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Total tickets</p>
-                <p className="mt-3 text-3xl font-bold">{totalTasks}</p>
-              </div>
-              <div className="rounded-[1.35rem] border border-border/60 bg-background/80 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Auto assigned</p>
-                <p className="mt-3 text-3xl font-bold">{autoAssignedCount}</p>
-              </div>
-              <div className="rounded-[1.35rem] border border-border/60 bg-background/80 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Needs review</p>
-                <p className="mt-3 text-3xl font-bold">{reviewCount}</p>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6 animate-fade-in">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-[1.35rem] border border-[#fdba74]/45 bg-[#fff7ed] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Total tickets</p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{totalTasks}</p>
         </div>
-      </section>
+        <div className="rounded-[1.35rem] border border-[#fb923c]/45 bg-[#ffedd5] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Auto assigned</p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{autoAssignedCount}</p>
+        </div>
+        <div className="rounded-[1.35rem] border border-[#f97316]/45 bg-[#fed7aa] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Needs review</p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{reviewCount}</p>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
@@ -276,57 +251,59 @@ const TaskBoard = () => {
         </div>
       ) : (
         <section className="overflow-x-auto rounded-[2rem] border border-border/60 bg-card p-4 shadow-lg">
-          <div className="grid min-w-[1100px] gap-4 xl:grid-cols-4">
+          <div className="grid min-w-[980px] gap-4 xl:grid-cols-4">
             {groupedTasks.map((column) => (
               <div
                 key={column.key}
-                className="rounded-[1.5rem] border border-border/60 bg-card/95 p-4"
+                className="rounded-[1.35rem] border border-border/60 bg-card/95 p-3"
               >
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9a3412]">
                       {column.label}
                     </h2>
-                    <Badge className={`rounded-full border-0 px-2.5 py-1 ${column.badgeClass}`}>
+                    <Badge className={`rounded-full border-0 px-2 py-0.5 text-[11px] ${column.badgeClass}`}>
                       {column.items.length}
                     </Badge>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div
+                  className={`space-y-2.5 ${column.items.length >= 4 ? "max-h-[75%] overflow-y-auto scrollbar-hide pr-1" : ""}`}
+                >
                   {column.items.map((task) => (
                     <button
                       key={task.task_id}
                       type="button"
                       onClick={() => openTask(task.task_id)}
-                      className={`w-full rounded-[1.4rem] border p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/40 ${column.accent}`}
+                      className={`w-full rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/40 ${column.accent}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold text-foreground">{task.title}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                             {task.task_key}
                           </p>
                         </div>
-                        <Badge className="border border-border/60 bg-background/90 text-foreground/80">
+                        <Badge className="border border-[#fdba74]/40 bg-[#fff7ed] px-2 py-0.5 text-[10px] text-[#9a3412]">
                           {task.priority}
                         </Badge>
                       </div>
 
-                        <div className="mt-4 space-y-2 text-sm text-foreground/75">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
+                      <div className="mt-3 space-y-1.5 text-xs text-foreground/75">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5" />
                           <span className="truncate">
                             {task.client_company_name || task.client_name || "Client"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          <span>{task.field}</span>
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span className="truncate">{task.field}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <UserCircle2 className="h-4 w-4" />
-                          <span>{task.assignee_name || "Unassigned"}</span>
+                        <div className="flex items-center gap-1.5">
+                          <UserCircle2 className="h-3.5 w-3.5" />
+                          <span className="truncate">{task.assignee_name || "Unassigned"}</span>
                         </div>
                       </div>
                     </button>
