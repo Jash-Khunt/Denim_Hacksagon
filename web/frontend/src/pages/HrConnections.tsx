@@ -167,7 +167,7 @@ const HrConnections = () => {
             <section key={status} className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold capitalize">{status}</h2>
+                  <h2 className="text-xl font-semibold capitalize text-foreground">{status}</h2>
                   <p className="text-sm text-muted-foreground">
                     {status === "pending"
                       ? "Approve these clients before they can upload project briefs."
@@ -200,7 +200,16 @@ const HrConnections = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="truncate text-lg font-semibold">{connection.name}</p>
-                              <Badge className="capitalize" variant="secondary">
+                              <Badge
+                                className="capitalize"
+                                variant={
+                                  connection.status === "connected"
+                                    ? "default"
+                                    : connection.status === "declined"
+                                      ? "destructive"
+                                      : "secondary"
+                                }
+                              >
                                 {connection.status}
                               </Badge>
                             </div>
@@ -269,7 +278,7 @@ const HrConnections = () => {
                             </Button>
                           </div>
                         ) : status === "connected" ? (
-                          <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+                          <div className="rounded-[1.25rem] border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">
                             This client is approved and can upload PDFs directly into your workspace.
                           </div>
                         ) : (

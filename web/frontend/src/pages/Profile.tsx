@@ -224,7 +224,7 @@ const Profile = () => {
 
       {/* Profile Tabs */}
       <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+        <TabsList className="w-auto justify-start overflow-x-auto flex-nowrap">
           <TabsTrigger value="personal" className="whitespace-nowrap">Personal Details</TabsTrigger>
           <TabsTrigger value="job" className="whitespace-nowrap">Job Details</TabsTrigger>
         </TabsList>
