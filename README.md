@@ -12,52 +12,41 @@ The project is built for fast development and clean user experiences while suppo
 
 ## Key Features
 
-- **User authentication and role-based access**
-  - Secure login for HR, employees, and clients
-  - Protected routes and session management
+- **JIRA Integration & Task Management**
+  - Bot output is parsed into structured task JSON with normalized difficulty, flags, due dates, and priorities
+  - Tasks are inserted into workflow database (project_tasks) for seamless tracking
+  - Jira controller creates issues from tasks with optional sprint/assignee assignment
+  - Frontend task board consumes and displays created Jira tickets for real-time collaboration
 
-- **Employee and profile management**
-  - Employee directory and HR directory views
-  - Editable user profiles with team and contact details
+- **HR Summary Dashboard**
+  - Comprehensive HR analytics and reporting with employee metrics, attendance summaries, and leave statistics
+  - Real-time dashboard updates for HR decision-making and workforce insights
+  - Integration with payroll and performance data for holistic HR management
 
-- **Attendance and time tracking**
-  - Daily attendance logging
-  - Attendance history and reporting support
+- **Smart Alert System**
+  - Intelligent notification system for task deadlines, leave approvals, and HR actions
+  - Automated reminders based on due dates with employee-specific grouping
+  - Asynchronous checks triggered by task updates and daily cron scheduler for proactive alerts
 
-- **Leave request and approval workflows**
-  - Submit leave requests from the employee portal
-  - Review and approve or reject requests via HR dashboard
-  - Approvals tracking and status management
+- **Citation & Document Intelligence**
+  - Advanced citation tracking and source referencing in assistant responses
+  - Document indexing with metadata for accurate information retrieval
+  - Pathway filesystem reader integration for comprehensive document processing
 
-- **Payroll management**
-  - Payroll data management for HR teams
-  - Payment summaries and payroll processing workflows
+- **Large Document Summarization**
+  - Heavy-duty RAG model capable of processing and summarizing extensive documents
+  - Chunk-based indexing and retrieval for handling large-scale content efficiently
+  - Optimized for performance with significant computational resources for deep analysis
 
-- **Client project management**
-  - Client project listing and collaboration support
-  - Client-facing features for better transparency
+- **Intelligent Assistant with Graph Rendering**
+  - AI assistant powered by retrieval-augmented generation (RAG) with document access
+  - Message parser scans for [GRAPH_CONFIG] to render bar/line/pie charts from valid payloads
+  - Threaded conversational workflows with statistics tracking and cleanup endpoints
 
-- **Task board and workflow automation**
-  - Task creation, assignment, and board management
-  - Workflow automation via scheduled background tasks
-
-- **Jira integration**
-  - Jira connection support for issue and project synchronization
-  - HR and task coordination tied to Jira data
-
-- **HR connections and network management**
-  - Connection management for HR contacts and client relationships
-  - Built-in HR collaboration tools
-
-- **Intelligent assistant with document access**
-  - AI assistant threads and conversational history
-  - Document serving from `rag_model/pathway/client` and `rag_model/pathway/data`
-  - Assistant statistics, thread creation, and cleanup endpoints
-
-- **File uploads and notifications**
-  - File upload handling with `multer`
-  - Email notifications via `nodemailer`
-  - Scheduled background jobs using `node-cron`
+- **Email Notification System**
+  - Due dates stored on tasks with HR-triggered reminders via API (/tasks/reminders/due-in-two-days)
+  - Backend groups due/overdue tasks by employee and sends personalized email notifications
+  - Asynchronous reminder-window checks and daily cron scheduler for automated communication
 
 ## Tech Stack
 
@@ -83,8 +72,12 @@ The project is built for fast development and clean user experiences while suppo
   - Node Cron for scheduled workflows
 
 - AI / RAG Support
-  - Local assistant document serving from `rag_model`
-  - Assistant routes for threaded conversational AI
+  - Multi-service Pathway architecture with separate endpoints for main RAG, tickets, and dashboard
+  - Heavy-duty retrieval-augmented generation model with Pathway filesystem reader for metadata-rich document processing
+  - Document store with chunk-based indexing and retrieval optimized for large-scale content analysis
+  - Statistics endpoint exposed for indexing metrics and performance monitoring
+  - Streamlit web interface for direct RAG interaction
+  - Significant computational resources required for deep document summarization and intelligent citation tracking
 
 - Python / ML Support
   - `requirements.txt` includes dependencies for the `rag_model` and model-serving environment
@@ -93,12 +86,25 @@ The project is built for fast development and clean user experiences while suppo
 
 - `web/frontend/` — React + Vite + TypeScript frontend application
 - `web/backend/` — Node.js Express API server and HR backend logic
-- `rag_model/` — RAG assistant assets and data sources
+- `rag_model/pathway/` — RAG assistant implementation with multiple services
+  - `app.py` — Main Pathway application
+  - `app.yaml`, `ticket.yaml`, `dashboard.yaml` — Service configurations
+  - `client/` — Document storage directory
+  - `data/` — Additional data directory
+  - `streamlit_ui/` — Streamlit web interface for RAG
 - `requirements.txt` — Python dependencies for the AI/model environment
+- `docs/images/` — Screenshots and documentation images
 
 ## Getting Started
 
-### Backend
+### Prerequisites
+
+- Node.js (v18+)
+- Python (v3.8+)
+- PostgreSQL database
+- Git
+
+### Backend Setup
 
 ```bash
 cd web/backend
@@ -108,61 +114,72 @@ cp .env.example .env
 npm run dev
 ```
 
-### Frontend
+The backend will start on `http://localhost:3001`
+
+### Frontend Setup
 
 ```bash
 cd web/frontend
 npm install
+cp .env.example .env
+# Update VITE_API_URL if needed (defaults to http://localhost:3001/api/v1)
 npm run dev
 ```
 
-### Optional AI / Assistant Data
+The frontend will start on `http://localhost:8080`
 
-If you are using the assistant integration, the backend exposes:
+### RAG Model Setup
 
-- `/assistant-documents` for RAG document assets
-- `/assistant-data` for assistant data resources
+The project uses multiple Pathway services for AI assistance:
 
-## Environment Variables
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
 
-This project uses separate env examples for each layer:
+# Navigate to RAG model directory
+cd rag_model/pathway
 
-- `web/backend/.env.example`
-- `web/frontend/.env.example`
-- `rag_model/pathway/.env.example`
-- `.env.example` at the repo root for consolidated reference
+# Copy environment file
+cp .env.example .env
+# Update with your HuggingFace API key and Google credentials
 
-### Backend `.env.example`
+# Start the main Pathway service (port 8000)
+python app.py
 
-```env
-DB_USER=
-DB_HOST=
-DB_DATABASE=
-DB_PASSWORD=
-DB_PORT=
-JWT_SECRET=
-PATHWAY_URL=http://localhost:8000
-JIRA_DOMAIN=
-JIRA_EMAIL=
-JIRA_API_TOKEN=
-JIRA_PROJECT_KEY=
-HR_GMAIL_APP_PASSWORD=
-HR_GMAIL_USER=
+# In separate terminals, start additional services:
+# Ticket service (port 8001)
+python app.py --config ticket.yaml
+
+# Dashboard service (port 8002)
+python app.py --config dashboard.yaml
+
+# Optional: Start Streamlit UI
+cd streamlit_ui
+streamlit run ui.py
 ```
 
-### Frontend `.env.example`
+### Environment Variables
 
-```env
-VITE_API_URL=http://localhost:3001/api/v1
-```
+Update the following key environment variables:
 
-### RAG model `.env.example`
+**Backend (.env):**
 
-```env
-HUGGINGFACE_API_KEY="hf..."
-GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
-DRIVE_ID="1Cy..."
-```
+- `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`, `DB_PORT` - PostgreSQL connection
+- `JWT_SECRET` - JWT signing key
+- `PATHWAY_URL=http://localhost:8000` - Main Pathway service
+- `PATHWAY_TICKET_URL=http://localhost:8001` - Ticket service
+- `PATHWAY_DASHBOARD_URL=http://localhost:8002` - Dashboard service
+- `HR_GMAIL_USER`, `HR_GMAIL_APP_PASSWORD` - Email credentials
+
+**Frontend (.env):**
+
+- `VITE_API_URL=http://localhost:3001/api/v1` - Backend API URL
+
+**RAG Model (.env):**
+
+- `HUGGINGFACE_API_KEY` - HuggingFace API key
+- `GOOGLE_APPLICATION_CREDENTIALS` - Path to Google credentials JSON
+- `DRIVE_ID` - Google Drive folder ID for documents
 
 ## Role-Based UI Overview
 
@@ -190,7 +207,6 @@ The app supports multiple roles with dedicated screens and dashboards. Add role-
 
 ![WhatsApp Image 2026-04-05 at 1 07 32 AM](https://github.com/user-attachments/assets/723fde2d-389d-4afb-92a6-187854093d71)
 
-
 ### Client Portal
 
 ![WhatsApp Image 2026-04-05 at 12 58 21 AM](https://github.com/user-attachments/assets/be80896c-8221-4479-b852-6edc42370c5c)
@@ -199,15 +215,36 @@ The app supports multiple roles with dedicated screens and dashboards. Add role-
 
 ![WhatsApp Image 2026-04-05 at 12 59 45 AM](https://github.com/user-attachments/assets/8139145e-7147-4805-a3b3-854282af1a30)
 
-
-
-
 ## Useful Scripts
 
-- Frontend development: `npm run dev`
-- Frontend build: `npm run build`
-- Backend development: `npm run dev`
-- Backend start: `npm start`
+### Development Commands
+
+**Backend:**
+
+- `npm run dev` - Start development server with nodemon
+- `npm start` - Start production server
+
+**Frontend:**
+
+- `npm run dev` - Start Vite development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+
+**RAG Model:**
+
+- `python app.py` - Start main Pathway service (port 8000)
+- `python app.py --config ticket.yaml` - Start ticket service (port 8001)
+- `python app.py --config dashboard.yaml` - Start dashboard service (port 8002)
+- `streamlit run streamlit_ui/ui.py` - Start Streamlit UI
+
+### Service URLs
+
+- Backend API: `http://localhost:3001`
+- Frontend: `http://localhost:8080`
+- Pathway Main: `http://localhost:8000`
+- Pathway Tickets: `http://localhost:8001`
+- Pathway Dashboard: `http://localhost:8002`
+- Streamlit UI: `http://localhost:8501` (default Streamlit port)
 
 ## Notes
 
