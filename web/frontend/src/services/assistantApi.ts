@@ -16,11 +16,18 @@ export interface AssistantAnswer {
   answer?: string;
   response?: string;
   evidence?: string[];
-  contextDocs?: Array<Record<string, unknown>>;
+  contextDocs?: AssistantContextDoc[];
   context_docs?: Array<Record<string, unknown>>;
   docs?: Array<Record<string, unknown>>;
   sources?: Array<Record<string, unknown>>;
   [key: string]: unknown;
+}
+
+export interface AssistantContextDoc {
+  path: string;
+  text?: string;
+  preview_url?: string;
+  previewUrl?: string;
 }
 
 export interface AssistantMessage {
@@ -29,6 +36,7 @@ export interface AssistantMessage {
   content: string;
   createdAt: string;
   sources?: string[];
+  contextDocs?: AssistantContextDoc[];
   error?: boolean;
 }
 

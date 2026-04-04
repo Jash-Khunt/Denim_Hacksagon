@@ -321,44 +321,6 @@ const TaskBoard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {isHr && (
-        <div className="flex justify-end">
-          <Button
-            onClick={() => setIsCreateTaskOpen(true)}
-            className="rounded-xl"
-          >
-            Create Manual Task
-          </Button>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-[1.35rem] border border-[#fdba74]/45 bg-[#fff7ed] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
-            Total tickets
-          </p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
-            {totalTasks}
-          </p>
-        </div>
-        <div className="rounded-[1.35rem] border border-[#fb923c]/45 bg-[#ffedd5] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
-            Auto assigned
-          </p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
-            {autoAssignedCount}
-          </p>
-        </div>
-        <div className="rounded-[1.35rem] border border-[#f97316]/45 bg-[#fed7aa] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
-            Needs review
-          </p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
-            {reviewCount}
-          </p>
-        </div>
-      </div>
-
       {isLoading ? (
         <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -375,11 +337,11 @@ const TaskBoard = () => {
         </div>
       ) : (
         <section className="overflow-x-auto rounded-[2rem] border border-border/60 bg-card p-4 shadow-lg">
-          <div className="grid min-w-[980px] gap-4 xl:grid-cols-4">
+          <div className="h-[700px] grid min-w-[980px] gap-4 xl:grid-cols-4">
             {groupedTasks.map((column) => (
               <div
                 key={column.key}
-                className="rounded-[1.35rem] border border-border/60 bg-card/95 p-3"
+                className="flex h-[695px] flex-col rounded-[1.35rem] border border-border/60 bg-card/95 p-3"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -395,7 +357,7 @@ const TaskBoard = () => {
                 </div>
 
                 <div
-                  className={`space-y-2.5 ${column.items.length >= 4 ? "max-h-[75%] overflow-y-auto scrollbar-hide pr-1" : ""}`}
+                  className={`flex-1 space-y-2.5 ${column.items.length >= 4 ? "min-h-0 overflow-y-auto scrollbar-hide pr-1" : ""}`}
                 >
                   {column.items.map((task) => (
                     <button

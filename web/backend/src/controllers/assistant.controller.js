@@ -1,4 +1,7 @@
 import axios from "axios";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { pool } from "../lib/db.js";
 
 const PATHWAY_URL = (process.env.PATHWAY_URL || "http://localhost:8000").replace(
@@ -8,6 +11,12 @@ const PATHWAY_URL = (process.env.PATHWAY_URL || "http://localhost:8000").replace
 const PATHWAY_TIMEOUT_MS = Number.parseInt(
   process.env.PATHWAY_TIMEOUT_MS || "120000",
   10
+);
+const CONTROLLER_DIR = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_UPLOADS_DIR = path.resolve(CONTROLLER_DIR, "../../uploads");
+const PATHWAY_CLIENT_DIR = path.resolve(
+  CONTROLLER_DIR,
+  "../../../../rag_model/pathway/client",
 );
 
 const PATHWAY_ENDPOINTS = [
@@ -60,6 +69,183 @@ const extractAnswer = (value) => {
 
 const pickArray = (value) => (Array.isArray(value) ? value : []);
 
+const pickFirstString = (values) =>
+  values.find((value) => typeof value === "string" && value.trim().length > 0) ||
+  "";
+
+const toPublicPath = (segments) =>
+  segments
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+const getEntryMetadata = (entry) =>
+  entry &&
+  typeof entry === "object" &&
+  entry.metadata &&
+  typeof entry.metadata === "object" &&
+  !Array.isArray(entry.metadata)
+    ? entry.metadata
+    : {};
+
+const getSourcePath = (entry) => {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const metadata = getEntryMetadata(entry);
+
+  return pickFirstString([
+    entry.path,
+    entry.filepath,
+    metadata.path,
+    metadata.filepath,
+    entry.url,
+    metadata.url,
+    entry.title,
+    metadata.title,
+    entry.source,
+    metadata.source,
+    entry.name,
+    metadata.name,
+  ]);
+};
+
+const getSourceText = (entry) => {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const metadata = getEntryMetadata(entry);
+
+  return pickFirstString([
+    entry.text,
+    entry.content,
+    metadata.text,
+    metadata.content,
+  ]);
+};
+
+const resolveRelativePublicPath = (normalizedPath, fromDir, publicBasePath) => {
+  const candidate = path.resolve(normalizedPath);
+  if (!fs.existsSync(candidate)) {
+    return "";
+  }
+
+  const relativePath = path.relative(fromDir, candidate).replace(/\\/g, "/");
+  if (
+    !relativePath ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    return "";
+  }
+
+  return `${publicBasePath}/${toPublicPath(relativePath)}`;
+};
+
+const resolvePublicDocumentUrl = (sourcePath) => {
+  if (typeof sourcePath !== "string" || !sourcePath.trim()) {
+    return "";
+  }
+
+  const normalizedPath = sourcePath.replace(/\\/g, "/").trim();
+  if (!/\.pdf(?:$|[?#])/i.test(normalizedPath)) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  if (normalizedPath.startsWith("/uploads/")) {
+    return `/uploads/${toPublicPath(normalizedPath.slice("/uploads/".length))}`;
+  }
+
+  if (normalizedPath.startsWith("uploads/")) {
+    return `/uploads/${toPublicPath(normalizedPath.slice("uploads/".length))}`;
+  }
+
+  if (normalizedPath.startsWith("/assistant-documents/")) {
+    return `/assistant-documents/${toPublicPath(
+      normalizedPath.slice("/assistant-documents/".length),
+    )}`;
+  }
+
+  if (normalizedPath.startsWith("assistant-documents/")) {
+    return `/assistant-documents/${toPublicPath(
+      normalizedPath.slice("assistant-documents/".length),
+    )}`;
+  }
+
+  if (normalizedPath.startsWith("client/")) {
+    return `/assistant-documents/${toPublicPath(
+      normalizedPath.slice("client/".length),
+    )}`;
+  }
+
+  const uploadsMarker = "/uploads/";
+  const uploadsIndex = normalizedPath.lastIndexOf(uploadsMarker);
+  if (uploadsIndex >= 0) {
+    return `/uploads/${toPublicPath(
+      normalizedPath.slice(uploadsIndex + uploadsMarker.length),
+    )}`;
+  }
+
+  const pathwayMarker = "/rag_model/pathway/client/";
+  const pathwayIndex = normalizedPath.lastIndexOf(pathwayMarker);
+  if (pathwayIndex >= 0) {
+    return `/assistant-documents/${toPublicPath(
+      normalizedPath.slice(pathwayIndex + pathwayMarker.length),
+    )}`;
+  }
+
+  const uploadAbsoluteMatch = resolveRelativePublicPath(
+    normalizedPath,
+    BACKEND_UPLOADS_DIR,
+    "/uploads",
+  );
+  if (uploadAbsoluteMatch) {
+    return uploadAbsoluteMatch;
+  }
+
+  const pathwayAbsoluteMatch = resolveRelativePublicPath(
+    normalizedPath,
+    PATHWAY_CLIENT_DIR,
+    "/assistant-documents",
+  );
+  if (pathwayAbsoluteMatch) {
+    return pathwayAbsoluteMatch;
+  }
+
+  const basename = path.posix.basename(normalizedPath);
+  if (!basename) {
+    return "";
+  }
+
+  if (fs.existsSync(path.join(BACKEND_UPLOADS_DIR, basename))) {
+    return `/uploads/${encodeURIComponent(basename)}`;
+  }
+
+  if (fs.existsSync(path.join(PATHWAY_CLIENT_DIR, basename))) {
+    return `/assistant-documents/${encodeURIComponent(basename)}`;
+  }
+
+  return "";
+};
+
+const normalizeStoredContextDocs = (contextDocs) =>
+  pickArray(contextDocs)
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => ({
+      ...entry,
+      preview_url:
+        typeof entry.preview_url === "string" && entry.preview_url.trim()
+          ? entry.preview_url
+          : resolvePublicDocumentUrl(entry.path),
+    }));
+
 const extractSourceBuckets = (payload) => {
   if (!payload || typeof payload !== "object") {
     return {
@@ -94,21 +280,7 @@ const extractEvidence = (payload) => {
   const buckets = extractSourceBuckets(payload);
 
   return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-
-      const record = entry;
-      const label = [
-        record.path,
-        record.filepath,
-        record.url,
-        record.title,
-        record.source,
-        record.name,
-      ].find((value) => typeof value === "string" && value.trim().length > 0);
-
-      return label ? String(label) : null;
-    })
+    .map((entry) => getSourcePath(entry) || null)
     .filter(Boolean)
     .slice(0, 10);
 };
@@ -119,29 +291,10 @@ const normalizeContextDocs = (payload) => {
   return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
     .filter((entry) => entry && typeof entry === "object")
     .map((entry) => {
-      const record = entry;
-
       return {
-        text:
-          typeof record.text === "string"
-            ? record.text
-            : typeof record.content === "string"
-              ? record.content
-              : "",
-        path:
-          typeof record.path === "string"
-            ? record.path
-            : typeof record.filepath === "string"
-              ? record.filepath
-              : typeof record.url === "string"
-                ? record.url
-                : typeof record.title === "string"
-                  ? record.title
-                  : typeof record.source === "string"
-                    ? record.source
-                    : typeof record.name === "string"
-                      ? record.name
-                      : "",
+        text: getSourceText(entry),
+        path: getSourcePath(entry),
+        preview_url: resolvePublicDocumentUrl(getSourcePath(entry)),
       };
     })
     .filter((entry) => entry.text || entry.path)
@@ -180,6 +333,7 @@ const mapQuestionRowsToMessages = (rows) =>
           : row.response || "No response received from the assistant.",
       createdAt: row.updated_at,
       sources: Array.isArray(row.evidence) ? row.evidence : [],
+      contextDocs: normalizeStoredContextDocs(row.context_docs),
       error: row.status === "error",
     });
 
