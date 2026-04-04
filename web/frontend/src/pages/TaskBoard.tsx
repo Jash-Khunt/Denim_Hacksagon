@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { employeeAPI, taskAPI } from "@/services/api";
-import { Employee, ProjectTask, TaskStatus } from "@/types";
+import { connectionAPI, employeeAPI, taskAPI } from "@/services/api";
+import { ClientConnection, Employee, ProjectTask, TaskStatus } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,11 +72,16 @@ const TaskBoard = () => {
 
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [connectedClients, setConnectedClients] = useState<ClientConnection[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -86,6 +91,16 @@ const TaskBoard = () => {
     field: "",
     due_date: "",
     assignee_emp_id: "unassigned",
+  });
+  const [createTaskForm, setCreateTaskForm] = useState({
+    client_id: "",
+    assignee_emp_id: "unassigned",
+    title: "",
+    description: "",
+    difficulty: "Medium",
+    priority: "Medium",
+    field: "",
+    due_date: "",
   });
 
   const getErrorMessage = (error: unknown) =>
@@ -102,6 +117,15 @@ const TaskBoard = () => {
       ]);
       setTasks(taskResponse.tasks);
       setEmployees(employeeResponse.employees || []);
+
+      if (isHr) {
+        const connectionResponse = await connectionAPI.getHrConnections();
+        const connected = (connectionResponse.connections || []).filter(
+          (connection) =>
+            connection.status === "connected" && connection.client_id,
+        );
+        setConnectedClients(connected);
+      }
     } catch (error: unknown) {
       toast({
         title: "Could not load task board",
@@ -230,6 +254,65 @@ const TaskBoard = () => {
     }
   };
 
+  const handleCreateTask = async () => {
+    if (!isHr) return;
+
+    if (
+      !createTaskForm.client_id ||
+      !createTaskForm.title.trim() ||
+      !createTaskForm.field.trim()
+    ) {
+      toast({
+        title: "Missing details",
+        description: "Please select a client and fill title + field.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingTask(true);
+      await taskAPI.createTask({
+        client_id: createTaskForm.client_id,
+        assignee_emp_id:
+          createTaskForm.assignee_emp_id === "unassigned"
+            ? undefined
+            : createTaskForm.assignee_emp_id,
+        title: createTaskForm.title.trim(),
+        description: createTaskForm.description.trim() || undefined,
+        difficulty: createTaskForm.difficulty as "Easy" | "Medium" | "Hard",
+        priority: createTaskForm.priority as "Low" | "Medium" | "High",
+        field: createTaskForm.field.trim(),
+        due_date: createTaskForm.due_date || undefined,
+      });
+
+      setCreateTaskForm({
+        client_id: createTaskForm.client_id,
+        assignee_emp_id: "unassigned",
+        title: "",
+        description: "",
+        difficulty: "Medium",
+        priority: "Medium",
+        field: "",
+        due_date: "",
+      });
+      await loadBoard();
+      toast({
+        title: "Task created",
+        description: "Manual task created and added to the board.",
+      });
+      setIsCreateTaskOpen(false);
+    } catch (error: unknown) {
+      toast({
+        title: "Could not create task",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
   const totalTasks = tasks.length;
   const autoAssignedCount = tasks.filter(
     (task) => task.assignment_mode === "auto",
@@ -238,6 +321,17 @@ const TaskBoard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {isHr && (
+        <div className="flex justify-end">
+          <Button
+            onClick={() => setIsCreateTaskOpen(true)}
+            className="rounded-xl"
+          >
+            Create Manual Task
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-[1.35rem] border border-[#fdba74]/45 bg-[#fff7ed] p-5 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
@@ -361,6 +455,202 @@ const TaskBoard = () => {
           </div>
         </section>
       )}
+
+      <Sheet open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto border-border/60 bg-card px-0 sm:max-w-[840px]"
+        >
+          <div className="space-y-6 p-6">
+            <SheetHeader className="space-y-2 text-left">
+              <SheetTitle className="text-2xl leading-tight text-foreground">
+                Create Manual Task
+              </SheetTitle>
+              <SheetDescription className="text-muted-foreground">
+                Build a complete task and assign it directly to an employee.
+              </SheetDescription>
+            </SheetHeader>
+
+            {connectedClients.length === 0 ? (
+              <div className="rounded-[1.2rem] border border-dashed border-border p-4 text-sm text-muted-foreground">
+                No connected clients available. Approve client connections
+                first, then create manual tasks.
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Client</Label>
+                <Select
+                  value={createTaskForm.client_id}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({ ...prev, client_id: value }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue placeholder="Select connected client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connectedClients.map((client) => (
+                      <SelectItem
+                        key={client.connection_id}
+                        value={client.client_id || ""}
+                      >
+                        {client.name} • {client.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Assignee</Label>
+                <Select
+                  value={createTaskForm.assignee_emp_id}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      assignee_emp_id: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem
+                        key={employee.emp_id}
+                        value={employee.emp_id || ""}
+                      >
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Difficulty</Label>
+                <Select
+                  value={createTaskForm.difficulty}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      difficulty: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Easy">Easy</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Priority</Label>
+                <Select
+                  value={createTaskForm.priority}
+                  onValueChange={(value) =>
+                    setCreateTaskForm((prev) => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger className="border-border/60 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Title</Label>
+                <Input
+                  value={createTaskForm.title}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter task title"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Field</Label>
+                <Input
+                  value={createTaskForm.field}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      field: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Backend, UI, QA"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Description</Label>
+                <Textarea
+                  rows={4}
+                  value={createTaskForm.description}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Add context and expected outcome"
+                  className="border-border/60 bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Due date</Label>
+                <Input
+                  type="date"
+                  value={createTaskForm.due_date}
+                  onChange={(e) =>
+                    setCreateTaskForm((prev) => ({
+                      ...prev,
+                      due_date: e.target.value,
+                    }))
+                  }
+                  className="border-border/60 bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={handleCreateTask}
+                disabled={isCreatingTask || connectedClients.length === 0}
+                className="rounded-xl"
+              >
+                {isCreatingTask ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Create Task
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet
         open={!!selectedTaskId}

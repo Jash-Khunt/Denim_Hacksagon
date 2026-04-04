@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addTaskComment,
+  createTask,
   getTaskById,
   getTasks,
   importTasksFromBot,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.use(protectRoute);
 
 router.get("/", checkRole(["hr", "employee", "client"]), getTasks);
+router.post("/", express.json(), checkRole(["hr"]), createTask);
 router.post(
   "/reminders/due-in-two-days",
   express.json(),
