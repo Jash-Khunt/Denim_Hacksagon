@@ -186,6 +186,25 @@ export const taskAPI = {
     return handleResponse<{ task: ProjectTask }>(response);
   },
 
+  createTask: async (data: {
+    client_id: string;
+    assignee_emp_id?: string;
+    title: string;
+    description?: string;
+    difficulty?: "Easy" | "Medium" | "Hard";
+    field: string;
+    due_date?: string;
+    priority?: "Low" | "Medium" | "High";
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ task: ProjectTask }>(response);
+  },
+
   updateTask: async (taskId: string, data: Partial<ProjectTask>) => {
     const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
       method: "PATCH",

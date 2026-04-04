@@ -176,6 +176,121 @@ export const getTaskById = async (req, res) => {
   }
 };
 
+export const createTask = async (req, res) => {
+  if (req.user.role !== "hr") {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  const {
+    client_id,
+    assignee_emp_id,
+    title,
+    description,
+    difficulty,
+    field,
+    due_date,
+    priority,
+  } = req.body;
+
+  if (!client_id || !title || !field) {
+    return res.status(400).json({
+      message: "client_id, title, and field are required",
+    });
+  }
+
+  const normalizedDifficulty = ["Easy", "Medium", "Hard"].includes(difficulty)
+    ? difficulty
+    : "Medium";
+  const normalizedPriority = ["Low", "Medium", "High"].includes(priority)
+    ? priority
+    : "Medium";
+
+  try {
+    const connectionResult = await pool.query(
+      `SELECT 1
+      FROM client_hr_connections
+      WHERE client_id = $1
+        AND hr_id = $2
+        AND status = 'connected'
+      LIMIT 1`,
+      [client_id, req.user.hr_id],
+    );
+
+    if (!connectionResult.rows.length) {
+      return res.status(400).json({
+        message: "Selected client is not connected to this HR account",
+      });
+    }
+
+    let assigneeId = null;
+    if (assignee_emp_id) {
+      const employeeResult = await pool.query(
+        `SELECT emp_id
+        FROM employee
+        WHERE emp_id = $1 AND hr_id = $2`,
+        [assignee_emp_id, req.user.hr_id],
+      );
+
+      if (!employeeResult.rows.length) {
+        return res.status(400).json({ message: "Invalid employee assignee" });
+      }
+
+      assigneeId = assignee_emp_id;
+    }
+
+    const ticketNumberResult = await pool.query(
+      "SELECT nextval('project_task_ticket_seq') AS ticket_number",
+    );
+    const ticketNumber = ticketNumberResult.rows[0].ticket_number;
+    const taskKey = `SCRUM-${ticketNumber}`;
+
+    const insertResult = await pool.query(
+      `INSERT INTO project_tasks (
+        client_id,
+        hr_id,
+        assignee_emp_id,
+        ticket_number,
+        task_key,
+        title,
+        description,
+        difficulty,
+        field,
+        confidence_flag,
+        human_intervention,
+        status,
+        assignment_mode,
+        priority,
+        due_date,
+        source,
+        created_by_role
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, 'High', FALSE, 'todo', $10, $11, $12, 'manual', 'hr'
+      )
+      RETURNING *`,
+      [
+        client_id,
+        req.user.hr_id,
+        assigneeId,
+        ticketNumber,
+        taskKey,
+        title.trim(),
+        description?.trim() || null,
+        normalizedDifficulty,
+        field.trim(),
+        assigneeId ? "manual" : "unassigned",
+        normalizedPriority,
+        due_date || null,
+      ],
+    );
+
+    return res.status(201).json({ task: insertResult.rows[0] });
+  } catch (error) {
+    console.error("Error in createTask:", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 export const updateTask = async (req, res) => {
   const { taskId } = req.params;
   const {
