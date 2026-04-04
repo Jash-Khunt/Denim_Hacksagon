@@ -27,7 +27,7 @@ import {
   Upload,
 } from "lucide-react";
 
-const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1").replace(
+const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1").replace(
   "/api/v1",
   "",
 );
@@ -420,6 +420,7 @@ const ClientProjects = () => {
                         </p>
                       </div>
                       <Badge variant="secondary" className="capitalize">
+                        {/* @ts-ignore */}
                         {project.processing_status.replaceAll("_", " ")}
                       </Badge>
                     </div>

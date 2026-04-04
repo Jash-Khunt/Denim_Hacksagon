@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
 const departmentColors: Record<string, string> = {
   "Human Resources": "bg-[#fbe3d9] text-[#9f4a30] border border-[#f2bda9]",

@@ -222,14 +222,14 @@ const Auth = () => {
             </TabsList>
 
             <TabsContent value="login">
-              <Card className="border-0 shadow-lg flex flex-col">
+              <Card className="border-0 shadow-lg flex h-[min(45vh,680px)] flex-col">
                 <CardHeader className="space-y-1">
                   <CardTitle className="text-2xl">Welcome back</CardTitle>
                   <CardDescription>
                     Enter your credentials to access your account
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 flex items-center">
+                <CardContent className="flex-1 overflow-y-auto scrollbar-hide">
                   <form onSubmit={handleLogin} className="space-y-4 w-full">
                     <div className="space-y-2">
                       <Label htmlFor="email">Login id / Email</Label>
@@ -284,7 +284,7 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              <Card className="border-0 shadow-lg flex flex-col">
+              <Card className="border-0 shadow-lg flex h-[min(45vh,680px)] flex-col">
                 <CardHeader className="space-y-1">
                   <CardTitle className="text-2xl">Create account</CardTitle>
                   <CardDescription>
