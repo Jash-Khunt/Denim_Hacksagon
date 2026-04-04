@@ -168,15 +168,36 @@ DRIVE_ID="1Cy..."
 
 The app supports multiple roles with dedicated screens and dashboards. Add role-specific screenshot assets in `docs/images` and update the image paths below when you have real UI captures.
 
-### HR Dashboard
+### Employee Dashboard
 
-![alt text](<docs/images/WhatsApp Image 2026-04-05 at 12.57.26 AM.jpeg>)
+![WhatsApp Image 2026-04-05 at 1 12 41 AM](https://github.com/user-attachments/assets/d1f9cc37-27c3-4ca0-8562-b21e63c5f4d0)
 
-### Employee Portal
+![WhatsApp Image 2026-04-05 at 1 15 12 AM](https://github.com/user-attachments/assets/d46bd2cd-e61b-4034-a6dd-ca2c91f38cec)
 
-![Employee Portal](docs/images/employee-portal.png)
+![WhatsApp Image 2026-04-05 at 1 15 23 AM](https://github.com/user-attachments/assets/1097fb35-22ba-475b-a8e6-86ec260cf01d)
+
+![WhatsApp Image 2026-04-05 at 1 15 29 AM](https://github.com/user-attachments/assets/2e914432-04df-4ba9-9aa3-aed3f4ff267d)
+
+### HR Portal
+
+![WhatsApp Image 2026-04-05 at 1 12 20 AM](https://github.com/user-attachments/assets/9394fa13-e7bb-46b7-9196-7ac64ce614fc)
+
+![WhatsApp Image 2026-04-05 at 1 02 33 AM](https://github.com/user-attachments/assets/0f0188d1-cd7a-476a-bdb5-d955078cabdc)
+
+![WhatsApp Image 2026-04-05 at 1 03 27 AM](https://github.com/user-attachments/assets/e8eb71cb-9680-47d0-af9b-0202ddf0a5cc)
+
+![WhatsApp Image 2026-04-05 at 1 03 49 AM](https://github.com/user-attachments/assets/63f4abfe-6033-4cd0-a83a-027209123eb3)
+
+![WhatsApp Image 2026-04-05 at 1 07 32 AM](https://github.com/user-attachments/assets/723fde2d-389d-4afb-92a6-187854093d71)
+
 
 ### Client Portal
+
+![WhatsApp Image 2026-04-05 at 12 58 21 AM](https://github.com/user-attachments/assets/be80896c-8221-4479-b852-6edc42370c5c)
+
+![WhatsApp Image 2026-04-05 at 12 59 21 AM](https://github.com/user-attachments/assets/5c500d43-3fde-4edd-93ed-0b4eda655f80)
+
+![WhatsApp Image 2026-04-05 at 12 59 45 AM](https://github.com/user-attachments/assets/8139145e-7147-4805-a3b3-854282af1a30)
 
 
 
