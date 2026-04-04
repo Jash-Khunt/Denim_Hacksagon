@@ -5,6 +5,9 @@ import {
   LeaveType,
   HrDirectoryItem,
   ClientProjectUpload,
+  ClientConnection,
+  ProjectTask,
+  ProjectTaskComment,
 } from "@/types";
 
 const API_BASE_URL =
@@ -107,15 +110,25 @@ export const clientAPI = {
     return handleResponse<{ message: string }>(response);
   },
 
+  getConnections: async () => {
+    const response = await fetch(`${API_BASE_URL}/client/connections`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ connections: ClientConnection[] }>(response);
+  },
+
   uploadProjectPdf: async (data: FormData) => {
     const response = await fetch(`${API_BASE_URL}/client/projects/upload`, {
       method: "POST",
       credentials: "include",
       body: data,
     });
-    return handleResponse<{ upload: ClientProjectUpload; message: string }>(
-      response,
-    );
+    return handleResponse<{
+      upload: ClientProjectUpload;
+      message: string;
+      tasks?: ProjectTask[];
+    }>(response);
   },
 
   getProjects: async () => {
@@ -124,6 +137,84 @@ export const clientAPI = {
       credentials: "include",
     });
     return handleResponse<{ uploads: ClientProjectUpload[] }>(response);
+  },
+};
+
+export const connectionAPI = {
+  getHrConnections: async () => {
+    const response = await fetch(`${API_BASE_URL}/connections/hr`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ connections: ClientConnection[] }>(response);
+  },
+
+  respondToConnection: async (
+    connectionId: string,
+    status: "connected" | "declined",
+  ) => {
+    const response = await fetch(`${API_BASE_URL}/connections/${connectionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status }),
+    });
+    return handleResponse<{ message: string; connection: ClientConnection }>(
+      response,
+    );
+  },
+};
+
+export const taskAPI = {
+  getTasks: async (status?: string) => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    const response = await fetch(`${API_BASE_URL}/tasks${query}`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ tasks: ProjectTask[] }>(response);
+  },
+
+  getTaskById: async (taskId: string) => {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ task: ProjectTask }>(response);
+  },
+
+  updateTask: async (taskId: string, data: Partial<ProjectTask>) => {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ task: ProjectTask }>(response);
+  },
+
+  addComment: async (taskId: string, content: string) => {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ content }),
+    });
+    return handleResponse<{ comment: ProjectTaskComment }>(response);
+  },
+
+  importTasks: async (payload: {
+    upload_id: string;
+    raw_response?: string;
+    tasks?: Record<string, any>[];
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/tasks/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<{ message: string; tasks: ProjectTask[] }>(response);
   },
 };
 
