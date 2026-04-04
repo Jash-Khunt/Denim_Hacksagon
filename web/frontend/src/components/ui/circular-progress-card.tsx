@@ -18,6 +18,7 @@ interface CircularProgressCardProps {
   currency?: string;
   progressColor?: string; // Prop to customize the progress bar color
   className?: string;
+  compact?: boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export const CircularProgressCard = ({
   currency = "",
   progressColor,
   className,
+  compact = false,
 }: CircularProgressCardProps) => {
   const cardRef = React.useRef<HTMLDivElement>(null);
   // Animate the progress bar when it enters the viewport
@@ -64,12 +66,23 @@ export const CircularProgressCard = ({
       ref={cardRef}
       className={cn("w-full max-w-sm text-center", className)}
     >
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader
+        className={cn(compact ? "px-5 pb-2 pt-5" : undefined)}
+      >
+        <CardTitle className={cn(compact ? "text-base" : undefined)}>
+          {title}
+        </CardTitle>
+        <CardDescription className={cn(compact ? "text-xs" : undefined)}>
+          {description}
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="relative mx-auto h-52 w-52">
+      <CardContent className={cn(compact ? "px-5 pb-5 pt-0" : undefined)}>
+        <div
+          className={cn(
+            "relative mx-auto",
+            compact ? "h-32 w-32" : "h-52 w-52",
+          )}
+        >
           {/* SVG container for the circular progress bar */}
           <svg
             width="100%"
@@ -107,10 +120,20 @@ export const CircularProgressCard = ({
           </svg>
           {/* Text content centered inside the circle */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl font-bold text-foreground">
+            <span
+              className={cn(
+                "font-bold text-foreground",
+                compact ? "text-2xl" : "text-4xl",
+              )}
+            >
               {progressPercentage}%
             </span>
-            <span className="text-sm text-muted-foreground">
+            <span
+              className={cn(
+                "text-muted-foreground",
+                compact ? "text-[11px]" : "text-sm",
+              )}
+            >
               {currency}
               {currentValue.toLocaleString()} / {currency}
               {goalValue.toLocaleString()}

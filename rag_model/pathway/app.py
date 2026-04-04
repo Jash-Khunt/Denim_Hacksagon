@@ -1,4 +1,6 @@
+import argparse
 import logging
+import os
 from pathlib import Path
 from warnings import warn
 
@@ -20,6 +22,7 @@ logging.basicConfig(
 )
 
 load_dotenv()
+DEFAULT_CONFIG_NAME = "app.yaml"
 
 
 class App(BaseModel):
@@ -70,10 +73,57 @@ class App(BaseModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
 
-if __name__ == "__main__":
+def resolve_config_path(config_value: str) -> Path:
     script_dir = Path(__file__).parent
-    config_path = script_dir / "app.yaml"
-    with open(config_path) as f:
+    config_path = Path(config_value)
+    if not config_path.is_absolute():
+        config_path = script_dir / config_path
+
+    config_path = config_path.resolve()
+    if not config_path.exists():
+        raise FileNotFoundError(f"Pathway config not found: {config_path}")
+
+    return config_path
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the Pathway assistant with a selected YAML config."
+    )
+    parser.add_argument(
+        "--config",
+        default=os.getenv("PATHWAY_CONFIG", DEFAULT_CONFIG_NAME),
+        help="YAML config file to load (for example: app.yaml or ticket.yaml).",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.getenv("PATHWAY_HOST"),
+        help="Optional host override for the REST server.",
+    )
+
+    env_port = os.getenv("PATHWAY_PORT")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(env_port) if env_port else None,
+        help="Optional port override for the REST server.",
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    config_path = resolve_config_path(args.config)
+    logging.info("Loading Pathway config from %s", config_path)
+
+    with open(config_path, encoding="utf-8") as f:
         config = pw.load_yaml(f)
+
+    if args.host:
+        config["host"] = args.host
+    if args.port is not None:
+        config["port"] = args.port
+
     app = App(**config)
     app.run()

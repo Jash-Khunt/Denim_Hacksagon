@@ -3,9 +3,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import AssistantWorkspace from "@/components/assistant/AssistantWorkspace";
 import { CircularProgressCard } from "@/components/ui/circular-progress-card";
+import { assistantAPI } from "@/services/assistantApi";
 import { taskAPI } from "@/services/api";
 import { ProjectTask } from "@/types";
-import { Upload, Handshake, FileText, KanbanSquare } from "lucide-react";
+import {
+  Upload,
+  Handshake,
+  FileText,
+  KanbanSquare,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -19,12 +28,29 @@ const Dashboard = () => {
 
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [isAssistantFullscreen, setIsAssistantFullscreen] = useState(false);
+  const [isTasksLoaded, setIsTasksLoaded] = useState(false);
+  const [dashboardSummary, setDashboardSummary] = useState("");
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
+
     taskAPI
       .getTasks()
-      .then((res) => setTasks(res.tasks || []))
-      .catch(console.error);
+      .then((res) => {
+        if (ignore) return;
+        setTasks(res.tasks || []);
+        setIsTasksLoaded(true);
+      })
+      .catch((error) => {
+        if (ignore) return;
+        console.error(error);
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -61,12 +87,48 @@ const Dashboard = () => {
   }, [isAssistantFullscreen]);
 
   const completedTasksCount = tasks.filter((t) => t.status === "done").length;
+  const totalTasks = tasks.length;
   const goalValue = tasks.length > 0 ? tasks.length : 1;
-  const tasksCompletedToday = tasks.filter(
-    (t) =>
-      t.status === "done" &&
-      new Date(t.updated_at).toDateString() === new Date().toDateString(),
-  ).length;
+  const remainingTasksCount = Math.max(totalTasks - completedTasksCount, 0);
+  const progressPercentage =
+    totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 0;
+
+  useEffect(() => {
+    if (!isHr || !isTasksLoaded) {
+      return;
+    }
+
+    let ignore = false;
+
+    const loadDashboardSummary = async () => {
+      try {
+        setIsSummaryLoading(true);
+        setSummaryError(null);
+        const response = await assistantAPI.getDashboardSummary(tasks);
+        if (ignore) return;
+
+        setDashboardSummary(response.summary);
+      } catch (error) {
+        if (ignore) return;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to generate dashboard summary";
+        setSummaryError(message);
+      } finally {
+        if (!ignore) {
+          setIsSummaryLoading(false);
+        }
+      }
+    };
+
+    void loadDashboardSummary();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isHr, isTasksLoaded, tasks]);
 
   if (isClient) {
     return (
@@ -198,31 +260,51 @@ const Dashboard = () => {
         <div
           aria-hidden={isAssistantFullscreen}
           className={cn(
-            "space-y-6 overflow-hidden transition-[max-height,opacity,transform,filter] duration-500 ease-out",
+            "overflow-hidden transition-[max-height,opacity,transform,filter] duration-500 ease-out",
             isAssistantFullscreen
               ? "pointer-events-none max-h-0 translate-y-6 opacity-0 blur-sm"
               : "max-h-[1200px] translate-y-0 opacity-100 blur-0",
+            isHr
+              ? "grid h-full min-h-[760px] grid-rows-[minmax(0,1fr)_minmax(0,3fr)] gap-6"
+              : "flex h-full min-h-[760px] flex-col gap-6",
           )}
         >
           <CircularProgressCard
-            className="w-full max-w-none border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card"
+            className="h-full w-full max-w-none border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card"
             title="Ticket Progress"
             description="Overall completed vs. total tasks"
             currentValue={completedTasksCount}
             goalValue={goalValue}
             progressColor="hsl(var(--primary))"
             currency=""
+            compact={isHr}
           />
 
           {isHr ? (
-            <Card className="border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card">
-              <CardContent className="flex flex-col items-center justify-center p-6 text-center py-8">
-                <h3 className="text-4xl font-bold text-primary">
-                  {tasksCompletedToday}
-                </h3>
-                <p className="text-sm font-medium text-muted-foreground mt-2 uppercase tracking-[0.15em]">
-                  Tasks Completed Today
-                </p>
+            <Card className="h-[75%] border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card">
+              <CardContent className="flex h-full flex-col justify-between p-6">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-semibold text-foreground">
+                    Summary
+                  </h3>
+                  {isSummaryLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      Generating summary with Pathway...
+                    </div>
+                  ) : summaryError ? (
+                    <p className="max-w-md text-sm leading-6 text-destructive">
+                      {summaryError}
+                    </p>
+                  ) : (
+                    <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                      {dashboardSummary}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Generated by the Pathway dashboard summary flow.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           ) : null}

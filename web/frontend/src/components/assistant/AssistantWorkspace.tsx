@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   AssistantAnswer,
   AssistantContextDoc,
+  AssistantMode,
   AssistantMessage,
   AssistantThread,
   assistantAPI,
@@ -333,6 +334,8 @@ const AssistantWorkspace = ({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [activeRequestMode, setActiveRequestMode] =
+    useState<AssistantMode | null>(null);
   const [isHistoryVisible, setIsHistoryVisible] = useState(true);
   const [localIsFullscreen, setLocalIsFullscreen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -503,7 +506,10 @@ const AssistantWorkspace = ({
     );
   };
 
-  const submitQuestion = async (question: string) => {
+  const submitQuestion = async (
+    question: string,
+    mode: AssistantMode = "default",
+  ) => {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || isSending) return;
 
@@ -538,11 +544,13 @@ const AssistantWorkspace = ({
 
     setInput("");
     setIsSending(true);
+    setActiveRequestMode(mode);
 
     try {
       const response = await assistantAPI.ask(trimmedQuestion, {
         threadId,
         returnContextDocs: true,
+        mode,
       });
       const contextDocs = extractContextDocs(response);
       const nextPreviewDoc = contextDocs.find((doc) => resolvePreviewUrl(doc));
@@ -594,6 +602,7 @@ const AssistantWorkspace = ({
       }));
     } finally {
       setIsSending(false);
+      setActiveRequestMode(null);
     }
   };
 
@@ -862,21 +871,19 @@ const AssistantWorkspace = ({
                         ) : null}
 
                         <div
-                          className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${
-                            isUser
+                          className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${isUser
                               ? isFullscreen
                                 ? "max-w-[min(32rem,100%)]"
                                 : "max-w-[min(38rem,100%)]"
                               : isFullscreen
                                 ? "max-w-[min(46rem,100%)]"
                                 : "max-w-[min(52rem,100%)]"
-                          } ${
-                            isUser
+                            } ${isUser
                               ? "rounded-tr-md bg-primary text-primary-foreground"
                               : message.error
                                 ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
                                 : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
-                          }`}
+                            }`}
                         >
                           {isUser ? (
                             <div className="whitespace-pre-wrap text-[15px] leading-7 text-primary-foreground">
@@ -887,11 +894,10 @@ const AssistantWorkspace = ({
                           )}
 
                           <div
-                            className={`mt-3 flex items-center gap-2 text-[11px] ${
-                              isUser
+                            className={`mt-3 flex items-center gap-2 text-[11px] ${isUser
                                 ? "text-primary-foreground/70"
                                 : "text-muted-foreground"
-                            }`}
+                              }`}
                           >
                             <span>{isUser ? "You" : "Assistant"}</span>
                             <span className="text-border">•</span>
@@ -981,7 +987,9 @@ const AssistantWorkspace = ({
                       <div className="rounded-3xl rounded-tl-md border border-border/70 bg-background/80 px-4 py-3 shadow-sm">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          Thinking with Pathway RAG...
+                          {activeRequestMode === "ticket"
+                            ? "Generating ticket breakdown with Pathway..."
+                            : "Thinking with Pathway RAG..."}
                         </div>
                       </div>
                     </div>
@@ -1002,7 +1010,9 @@ const AssistantWorkspace = ({
                       }}
                       placeholder={
                         isSending
-                          ? "Waiting for the assistant..."
+                          ? activeRequestMode === "ticket"
+                            ? "Generating ticket breakdown..."
+                            : "Waiting for the assistant..."
                           : "Ask the assistant about the indexed documents..."
                       }
                       className="min-h-[60px] resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0"
@@ -1010,9 +1020,8 @@ const AssistantWorkspace = ({
                     />
 
                     <div className="mt-3 flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        Enter to send. Shift+Enter adds a new line.
-                      </p>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                      </div>
                       <div className="flex items-center gap-2 self-end sm:self-auto">
                         {errorMessage ? (
                           <span className="mr-2 hidden text-xs text-destructive sm:inline">
@@ -1029,16 +1038,30 @@ const AssistantWorkspace = ({
                           Clear
                         </Button>
                         <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void submitQuestion(input, "ticket")}
+                          disabled={!input.trim() || isSending}
+                          className="rounded-xl"
+                        >
+                          {isSending && activeRequestMode === "ticket" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4" />
+                          )}
+                          Generate Tickets
+                        </Button>
+                        <Button
                           onClick={() => void submitQuestion(input)}
                           disabled={!input.trim() || isSending}
                           className="button-premium rounded-xl"
                         >
-                          {isSending ? (
+                          {isSending && activeRequestMode !== "ticket" ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <Send className="h-4 w-4" />
                           )}
-                          Send
+                          Ask
                         </Button>
                       </div>
                     </div>
@@ -1111,140 +1134,140 @@ const AssistantWorkspace = ({
               ) : null}
             </div>
 
-          <button
-            type="button"
-            aria-label="Close history"
-            className={cn(
-              "absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300",
-              isHistoryPanelVisible ? "opacity-100" : "pointer-events-none opacity-0",
-            )}
-            onClick={() => setIsHistoryVisible(false)}
-          />
+            <button
+              type="button"
+              aria-label="Close history"
+              className={cn(
+                "absolute inset-0 z-20 bg-background/35 backdrop-blur-[2px] transition-opacity duration-300",
+                isHistoryPanelVisible ? "opacity-100" : "pointer-events-none opacity-0",
+              )}
+              onClick={() => setIsHistoryVisible(false)}
+            />
 
-          <aside
-            className={cn(
-              "absolute inset-y-0 left-0 z-30 flex h-full min-h-0 w-[280px] flex-col border-r border-border/70 bg-card/95 shadow-xl backdrop-blur-md transition-transform duration-300 ease-out sm:w-[320px] lg:w-[340px]",
-              isHistoryPanelVisible
-                ? "translate-x-0"
-                : "-translate-x-full pointer-events-none",
-            )}
-          >
-            <div className="border-b border-border/70 bg-muted/30 px-5 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 space-y-2">
-                  <div className="my-auto flex items-center gap-2 py-1">
-                    <History className="h-4 w-4 shrink-0 text-primary" />
-                    <p className="text-sm font-semibold leading-none text-foreground">History</p>
-                    <Badge
-                      variant="secondary"
-                      className="my-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-none"
+            <aside
+              className={cn(
+                "absolute inset-y-0 left-0 z-30 flex h-full min-h-0 w-[280px] flex-col border-r border-border/70 bg-card/95 shadow-xl backdrop-blur-md transition-transform duration-300 ease-out sm:w-[320px] lg:w-[340px]",
+                isHistoryPanelVisible
+                  ? "translate-x-0"
+                  : "-translate-x-full pointer-events-none",
+              )}
+            >
+              <div className="border-b border-border/70 bg-muted/30 px-5 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-2">
+                    <div className="my-auto flex items-center gap-2 py-1">
+                      <History className="h-4 w-4 shrink-0 text-primary" />
+                      <p className="text-sm font-semibold leading-none text-foreground">History</p>
+                      <Badge
+                        variant="secondary"
+                        className="my-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-none"
+                      >
+                        {historyCountLabel}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearHistory}
+                      disabled={threads.length === 0}
+                      className="text-muted-foreground disabled:pointer-events-none disabled:opacity-40"
                     >
-                      {historyCountLabel}
-                    </Badge>
+                      Clear all
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearHistory}
-                    disabled={threads.length === 0}
-                    className="text-muted-foreground disabled:pointer-events-none disabled:opacity-40"
-                  >
-                    Clear all
-                  </Button>
-                </div>
               </div>
-            </div>
 
-            <div className="flex min-h-0 flex-1 flex-col p-4">
-              <Button
-                onClick={createThread}
-                className="mb-4 w-full justify-start rounded-2xl bg-primary/10 px-4 text-primary hover:bg-primary/15"
-                variant="ghost"
-              >
-                <Plus className="h-4 w-4" />
-                New chat
-              </Button>
+              <div className="flex min-h-0 flex-1 flex-col p-4">
+                <Button
+                  onClick={createThread}
+                  className="mb-4 w-full justify-start rounded-2xl bg-primary/10 px-4 text-primary hover:bg-primary/15"
+                  variant="ghost"
+                >
+                  <Plus className="h-4 w-4" />
+                  New chat
+                </Button>
 
-              <div className="flex min-h-0 flex-1 flex-col">
-                {threads.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center">
-                    <div className="w-full rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center">
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <MessageSquare className="h-5 w-5" />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {threads.length === 0 ? (
+                    <div className="flex flex-1 items-center justify-center">
+                      <div className="w-full rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center">
+                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <MessageSquare className="h-5 w-5" />
+                        </div>
+                        <p className="text-sm font-semibold">No conversations yet</p>
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                          Your recent chats will appear here once you start asking questions.
+                        </p>
                       </div>
-                      <p className="text-sm font-semibold">No conversations yet</p>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                        Your recent chats will appear here once you start asking questions.
-                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <ScrollArea className="min-h-0 flex-1 pr-2">
-                    <div className="space-y-3">
-                      {threads.map((thread) => {
-                        const isActive = thread.id === activeThreadId;
-                        const latestMessage =
-                          normalizePreview(
-                            thread.messages[thread.messages.length - 1]?.content || "Empty thread",
-                          ) || "Empty thread";
+                  ) : (
+                    <ScrollArea className="min-h-0 flex-1 pr-2">
+                      <div className="space-y-3">
+                        {threads.map((thread) => {
+                          const isActive = thread.id === activeThreadId;
+                          const latestMessage =
+                            normalizePreview(
+                              thread.messages[thread.messages.length - 1]?.content || "Empty thread",
+                            ) || "Empty thread";
 
-                        return (
-                          <div
-                            key={thread.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setActiveThreadId(thread.id)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                setActiveThreadId(thread.id);
-                              }
-                            }}
-                            className={`group w-[239px] rounded-2xl border p-4 text-left transition-all duration-200 sm:w-[279px] lg:w-[299px] ${isActive
-                              ? "border-primary/30 bg-primary/10 shadow-sm"
-                              : "border-border/60 bg-background/70 hover:border-primary/20 hover:bg-accent/40"
-                              }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-foreground">
-                                  {thread.title}
-                                </p>
-                                <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                                  {latestMessage}
-                                </p>
+                          return (
+                            <div
+                              key={thread.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setActiveThreadId(thread.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setActiveThreadId(thread.id);
+                                }
+                              }}
+                              className={`group w-[239px] rounded-2xl border p-4 text-left transition-all duration-200 sm:w-[279px] lg:w-[299px] ${isActive
+                                ? "border-primary/30 bg-primary/10 shadow-sm"
+                                : "border-border/60 bg-background/70 hover:border-primary/20 hover:bg-accent/40"
+                                }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-foreground">
+                                    {thread.title}
+                                  </p>
+                                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                                    {latestMessage}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    removeThread(thread.id);
+                                  }}
+                                  className="rounded-full p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus:opacity-100"
+                                  aria-label="Delete conversation"
+                                  type="button"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  removeThread(thread.id);
-                                }}
-                                className="rounded-full p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus:opacity-100"
-                                aria-label="Delete conversation"
-                                type="button"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <Clock3 className="h-3 w-3" />
-                                <span>{formatDistanceToNow(new Date(thread.updatedAt), { addSuffix: true })}</span>
+                              <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                                <div className="flex items-center gap-1.5">
+                                  <Clock3 className="h-3 w-3" />
+                                  <span>{formatDistanceToNow(new Date(thread.updatedAt), { addSuffix: true })}</span>
+                                </div>
+                                <span>{thread.messages.length} msg</span>
                               </div>
-                              <span>{thread.messages.length} msg</span>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
               </div>
-            </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
         </CardContent>
       </Card>
 

@@ -8,10 +8,19 @@ const PATHWAY_URL = (process.env.PATHWAY_URL || "http://localhost:8000").replace
   /\/$/,
   ""
 );
+const PATHWAY_TICKET_URL = (
+  process.env.PATHWAY_TICKET_URL || "http://localhost:8001"
+).replace(/\/$/, "");
+const PATHWAY_DASHBOARD_URL = (
+  process.env.PATHWAY_DASHBOARD_URL ||
+  process.env.PATHWAY_URL ||
+  "http://localhost:8000"
+).replace(/\/$/, "");
 const PATHWAY_TIMEOUT_MS = Number.parseInt(
   process.env.PATHWAY_TIMEOUT_MS || "120000",
   10
 );
+const TICKET_TIME_ZONE = "Asia/Kolkata";
 const CONTROLLER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_UPLOADS_DIR = path.resolve(CONTROLLER_DIR, "../../uploads");
 const PATHWAY_CLIENT_DIR = path.resolve(
@@ -302,6 +311,151 @@ const getAssistantOwner = (user) => {
 
 const getTitleFromPrompt = (prompt) => prompt.trim().slice(0, 42) || "New conversation";
 
+const normalizeAssistantMode = (value) =>
+  value === "ticket" || value === "dashboard" ? value : "default";
+
+const getPathwayUrl = (mode) =>
+  mode === "ticket"
+    ? PATHWAY_TICKET_URL
+    : mode === "dashboard"
+      ? PATHWAY_DASHBOARD_URL
+      : PATHWAY_URL;
+
+const getPathwayUnavailableMessage = (mode, pathwayUrl) =>
+  mode === "ticket"
+    ? `Assistant backend could not reach the ticket Pathway service at ${pathwayUrl}. Make sure the Python app is running with ticket.yaml and reachable from the web backend.`
+    : mode === "dashboard"
+      ? `Assistant backend could not reach the dashboard Pathway service at ${pathwayUrl}. Make sure the Python app is running with dashboard.yaml and reachable from the web backend.`
+    : `Assistant backend could not reach Pathway at ${pathwayUrl}. Make sure the Python app is running and reachable from the web backend.`;
+
+const formatTicketReferenceDate = () => {
+  const currentDate = new Date();
+  const isoDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TICKET_TIME_ZONE,
+  }).format(currentDate);
+  const longDate = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: TICKET_TIME_ZONE,
+  }).format(currentDate);
+
+  return `${isoDate} (${longDate}, ${TICKET_TIME_ZONE} / IST)`;
+};
+
+const buildPathwayPrompt = (prompt, mode) => {
+  if (mode !== "ticket") {
+    return prompt;
+  }
+
+  return [
+    prompt,
+    `Reference date for relative deadline calculation: ${formatTicketReferenceDate()}.`,
+  ].join("\n\n");
+};
+
+const normalizeWhitespace = (value) =>
+  typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+
+const truncateText = (value, maxLength = 180) => {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
+};
+
+const normalizeDashboardTask = (task) => {
+  if (!task || typeof task !== "object") {
+    return null;
+  }
+
+  return {
+    title: truncateText(task.title, 100),
+    description: truncateText(task.description, 160) || null,
+    status: normalizeWhitespace(task.status || "todo").toLowerCase(),
+    priority: truncateText(task.priority, 24) || "Medium",
+    field: truncateText(task.field, 48) || "General",
+    difficulty: truncateText(task.difficulty, 24) || "Medium",
+    due_date: truncateText(task.due_date, 32) || null,
+    updated_at: truncateText(task.updated_at, 40) || null,
+    project_name: truncateText(task.project_name, 80) || null,
+    assignee_name: truncateText(task.assignee_name, 80) || null,
+  };
+};
+
+const buildDashboardTaskSnapshot = (tasks) => {
+  const normalizedTasks = pickArray(tasks)
+    .map((task) => normalizeDashboardTask(task))
+    .filter((task) => task && task.title);
+
+  const completedTasks = normalizedTasks.filter((task) => task.status === "done");
+  const remainingTasks = normalizedTasks.filter((task) => task.status !== "done");
+  const statusBreakdown = normalizedTasks.reduce(
+    (summary, task) => {
+      if (task.status === "done") {
+        summary.done += 1;
+      } else if (task.status === "review") {
+        summary.review += 1;
+      } else if (task.status === "in_progress") {
+        summary.in_progress += 1;
+      } else {
+        summary.todo += 1;
+      }
+
+      return summary;
+    },
+    {
+      todo: 0,
+      in_progress: 0,
+      review: 0,
+      done: 0,
+    },
+  );
+
+  const summarizeTask = (task) => ({
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    field: task.field,
+    difficulty: task.difficulty,
+    due_date: task.due_date,
+    project_name: task.project_name,
+    assignee_name: task.assignee_name,
+    description: task.description,
+  });
+
+  return {
+    total_tasks: normalizedTasks.length,
+    completed_tasks: completedTasks.length,
+    remaining_tasks: remainingTasks.length,
+    status_breakdown: statusBreakdown,
+    recently_completed: completedTasks.slice(0, 6).map(summarizeTask),
+    remaining_focus: remainingTasks.slice(0, 6).map(summarizeTask),
+  };
+};
+
+const buildDashboardSummaryPrompt = (tasks) => {
+  const snapshot = buildDashboardTaskSnapshot(tasks);
+
+  return [
+    "Create a very short delivery dashboard summary.",
+    "Write 2-3 sentences in plain prose.",
+    "Mention exact completed and remaining counts from the task snapshot.",
+    "Briefly highlight the main completed work and the next remaining focus.",
+    "If there are no tasks, say that clearly in one short sentence.",
+    "",
+    "TASK SNAPSHOT:",
+    JSON.stringify(snapshot, null, 2),
+  ].join("\n");
+};
+
 const extractEvidence = (payload) => {
   const buckets = extractSourceBuckets(payload);
 
@@ -404,12 +558,13 @@ const createThreadRecord = async (owner, title = "New conversation") => {
 };
 
 const requestPathwayAnswer = async (prompt, options) => {
+  const pathwayUrl = getPathwayUrl(normalizeAssistantMode(options?.mode));
   let lastEndpointError = null;
 
   for (const endpoint of PATHWAY_ENDPOINTS) {
     try {
       const response = await axios.post(
-        `${PATHWAY_URL}${endpoint.path}`,
+        `${pathwayUrl}${endpoint.path}`,
         endpoint.buildPayload(prompt, options),
         {
           timeout: PATHWAY_TIMEOUT_MS,
@@ -491,6 +646,7 @@ export const createAssistantThread = async (req, res) => {
 
 export const askAssistant = async (req, res) => {
   const prompt = req.body?.prompt?.trim() || req.body?.query?.trim() || "";
+  const mode = normalizeAssistantMode(req.body?.mode);
 
   if (!prompt) {
     return res.status(400).json({ message: "Prompt is required" });
@@ -544,10 +700,11 @@ export const askAssistant = async (req, res) => {
       [thread.id],
     );
 
-    const rawData = await requestPathwayAnswer(prompt, {
+    const rawData = await requestPathwayAnswer(buildPathwayPrompt(prompt, mode), {
       filters: req.body?.filters,
       model: req.body?.model,
       returnContextDocs: req.body?.returnContextDocs,
+      mode,
     });
     const answer = extractAnswer(rawData) || "No response received from the assistant.";
     const sourceBuckets = extractSourceBuckets(rawData);
@@ -592,13 +749,14 @@ export const askAssistant = async (req, res) => {
   } catch (error) {
     console.error("Error in askAssistant:", error.message);
 
+    const pathwayUrl = getPathwayUrl(mode);
     const isConnectionIssue =
       error.code === "ECONNREFUSED" ||
       error.code === "ECONNRESET" ||
       error.code === "ENOTFOUND" ||
       error.code === "ETIMEDOUT";
     const message = isConnectionIssue
-      ? `Assistant backend could not reach Pathway at ${PATHWAY_URL}. Make sure the Python app is running and reachable from the web backend.`
+      ? getPathwayUnavailableMessage(mode, pathwayUrl)
       : error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
@@ -632,6 +790,41 @@ export const askAssistant = async (req, res) => {
       threadId: thread?.id || null,
       questionId: question?.question_id || null,
     });
+  }
+};
+
+export const getAssistantDashboardSummary = async (req, res) => {
+  try {
+    const rawData = await requestPathwayAnswer(
+      buildDashboardSummaryPrompt(req.body?.tasks),
+      {
+        mode: "dashboard",
+        returnContextDocs: false,
+      },
+    );
+
+    const summary =
+      extractAnswer(rawData) ||
+      "No tasks are available yet, so there is no delivery summary to share.";
+
+    return res.status(200).json({ summary });
+  } catch (error) {
+    console.error("Error in getAssistantDashboardSummary:", error.message);
+
+    const pathwayUrl = getPathwayUrl("dashboard");
+    const isConnectionIssue =
+      error.code === "ECONNREFUSED" ||
+      error.code === "ECONNRESET" ||
+      error.code === "ENOTFOUND" ||
+      error.code === "ETIMEDOUT";
+    const message = isConnectionIssue
+      ? getPathwayUnavailableMessage("dashboard", pathwayUrl)
+      : error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to generate dashboard summary";
+
+    return res.status(502).json({ message });
   }
 };
 
@@ -690,7 +883,7 @@ export const getAssistantStatistics = async (_req, res) => {
       error.code === "ENOTFOUND" ||
       error.code === "ETIMEDOUT";
     const message = isConnectionIssue
-      ? `Assistant backend could not reach Pathway at ${PATHWAY_URL}. Make sure the Python app is running and reachable from the web backend.`
+      ? getPathwayUnavailableMessage("default", PATHWAY_URL)
       : error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||

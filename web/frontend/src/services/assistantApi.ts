@@ -1,3 +1,5 @@
+import type { ProjectTask } from "@/types";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -8,6 +10,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
   return response.json();
 }
+
+export type AssistantMode = "default" | "ticket";
 
 export interface AssistantAnswer {
   threadId?: string;
@@ -91,6 +95,7 @@ export const assistantAPI = {
       filters?: string;
       model?: string;
       returnContextDocs?: boolean;
+      mode?: AssistantMode;
     },
   ) => {
     const response = await fetch(`${API_BASE_URL}/assistant/ask`, {
@@ -103,6 +108,7 @@ export const assistantAPI = {
         filters: options?.filters || null,
         model: options?.model || null,
         returnContextDocs: options?.returnContextDocs ?? true,
+        mode: options?.mode || "default",
       }),
     });
 
@@ -114,6 +120,17 @@ export const assistantAPI = {
       credentials: "include",
     });
     return handleResponse<{ file_count: number; last_modified: number; last_indexed: number }>(response);
+  },
+
+  getDashboardSummary: async (tasks: ProjectTask[]) => {
+    const response = await fetch(`${API_BASE_URL}/assistant/dashboard-summary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ tasks }),
+    });
+
+    return handleResponse<{ summary: string }>(response);
   },
 };
 

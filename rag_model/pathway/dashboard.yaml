@@ -1,0 +1,107 @@
+################
+# Data Sources.#
+################
+
+$sources:
+  - !pw.io.fs.read
+    path: client
+    format: binary
+    with_metadata: true
+
+#######################################
+# LLM from both HugginFace and Ollama.#
+#######################################
+
+$llm:
+  !pw.xpacks.llm.llms.LiteLLMChat
+  model: "huggingface/openai/gpt-oss-120b"
+  retry_strategy: !pw.udfs.ExponentialBackoffRetryStrategy
+    max_retries: 6
+  cache_strategy: !pw.udfs.DefaultCache {}
+  temperature: 0.2
+  capacity: 8
+  async_mode: "fully_async"
+
+####################################################################
+# Specifies the embedder model for converting text into embeddings.#
+####################################################################
+
+$embedder: !pw.xpacks.llm.embedders.SentenceTransformerEmbedder
+  model: "sentence-transformers/multi-qa-mpnet-base-dot-v1"
+  call_kwargs:
+    show_progress_bar: False
+
+#######################################################################
+# Defines the splitter settings for dividing text into smaller chunks.#
+#######################################################################
+
+$splitter: !pw.xpacks.llm.splitters.RecursiveSplitter
+  chunk_size: 4000
+  chunk_overlap: 800
+  separators:
+    - "\f"
+    - "\n\n"
+    - "\n"
+
+##################################################################################
+# Configures the parser for processing and extracting information from documents.#
+##################################################################################
+
+$parser: !pw.xpacks.llm.parsers.DoclingParser
+  table_parsing_strategy: "docling"
+  pdf_pipeline_options:
+    table_structure_options:
+      mode: "accurate"
+  chunk: false
+  async_mode: "fully_async"
+  cache_strategy: !pw.udfs.DefaultCache {}
+
+#######################################################################
+# Sets up the retriever factory for indexing and retrieving documents.#
+#######################################################################
+
+$retriever_factory: !pw.indexing.UsearchKnnFactory
+  reserved_space: 1000
+  embedder: $embedder
+  metric:
+    !pw.indexing.USearchMetricKind.COS
+
+
+$document_store: !pw.xpacks.llm.document_store.DocumentStore
+  docs: $sources
+  parser: $parser
+  splitter: $splitter
+  retriever_factory: $retriever_factory
+
+######################################################################
+# Dashboard summary prompt.                                              #
+######################################################################
+
+question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
+  llm: $llm
+  indexer: $document_store
+  search_topk: 4
+  prompt_template: |
+    ### ROLE:
+    You are a delivery dashboard analyst preparing a short task-board summary.
+
+    ### TASK:
+    - Use the TASK SNAPSHOT embedded in the QUESTION as the primary source of truth.
+    - Use the CONTEXT only as optional supporting background for product or project wording.
+    - Write a concise 2-3 sentence summary in plain prose.
+
+    ### RULES:
+    1. Mention the exact completed and remaining task counts from the TASK SNAPSHOT.
+    2. Briefly describe what has been completed and what still needs attention.
+    3. Keep the answer under 80 words.
+    4. Do not use bullet points.
+    5. If the TASK SNAPSHOT shows zero tasks, say there are no tasks yet in one short sentence.
+    6. Do not mention charts, JSON, or formatting tags.
+
+    ### INPUT:
+    CONTEXT: {context}
+    QUESTION: {query}
+
+    ANSWER:
+
+terminate_on_error: true
