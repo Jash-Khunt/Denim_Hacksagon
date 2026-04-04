@@ -246,7 +246,7 @@ pdfminer.six==20250506
 pexpect==4.9.0
 pi_heif==1.2.0
 pikepdf==10.3.0
-pillow==10.4.0
+pillow==11.3.0
 play-motion-builder-msgs==1.4.0
 play-motion2==1.8.2
 play-motion2-msgs==1.8.2
@@ -257,7 +257,7 @@ prettytable==3.17.0
 prompt_toolkit==3.0.52
 propcache==0.4.1
 proto-plus==1.27.1
-protobuf==5.29.6
+protobuf==6.33.5
 psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.3
@@ -404,7 +404,7 @@ statistics-msgs==1.2.2
 std-msgs==4.9.1
 std-srvs==4.9.1
 stereo-msgs==4.9.0
-streamlit==1.37.0
+streamlit==1.54.0
 sympy==1.14.0
 tabulate==0.9.0
 teleop-twist-keyboard==2.4.1
