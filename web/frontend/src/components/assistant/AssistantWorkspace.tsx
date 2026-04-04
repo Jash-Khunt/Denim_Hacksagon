@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -139,6 +139,7 @@ const AssistantWorkspace = () => {
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -210,9 +211,13 @@ const AssistantWorkspace = () => {
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
   const activeMessages = activeThread?.messages ?? [];
+  const isActiveThreadFresh =
+    Boolean(activeThread) &&
+    activeMessages.length === 0 &&
+    activeThread?.title === "New conversation";
   const historyCountLabel = `${threads.length} chat${threads.length === 1 ? "" : "s"}`;
 
-  const createThread = async () => {
+  const createThread = useCallback(async () => {
     try {
       setErrorMessage(null);
       const response = await assistantAPI.createThread();
@@ -230,7 +235,7 @@ const AssistantWorkspace = () => {
       setErrorMessage(message);
       return null;
     }
-  };
+  }, []);
 
   const updateThread = (
     threadId: string,
@@ -400,6 +405,58 @@ const AssistantWorkspace = () => {
     await clearAllThreads();
   };
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && event.shiftKey)) {
+        const isAlphabet = /^[a-z]$/i.test(event.key);
+        if (!isAlphabet || event.metaKey || event.altKey || isSending) {
+          return;
+        }
+
+        const target = event.target as HTMLElement | null;
+        const isTypingTarget =
+          Boolean(target) &&
+          (target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement ||
+            target instanceof HTMLSelectElement ||
+            target.isContentEditable);
+
+        if (isTypingTarget) {
+          return;
+        }
+
+        event.preventDefault();
+        textareaRef.current?.focus();
+        setInput((current) => `${current}${event.key}`);
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === "k") {
+        event.preventDefault();
+        if (!isSending && !isActiveThreadFresh) {
+          void createThread();
+        }
+        return;
+      }
+
+      if (key === "l") {
+        event.preventDefault();
+        setIsHistoryVisible((current) => !current);
+      }
+    };
+
+    globalThis.addEventListener("keydown", handleKeydown);
+    return () => {
+      globalThis.removeEventListener("keydown", handleKeydown);
+    };
+  }, [createThread, isActiveThreadFresh, isAuthenticated, isSending]);
+
   return (
     <>
       <Card className="h-[760px] overflow-hidden border-border/70 bg-card/90 shadow-card backdrop-blur-md">
@@ -530,6 +587,7 @@ const AssistantWorkspace = () => {
             <div className="shrink-0 border-t border-border/70 bg-muted/20 px-5 py-4">
               <div className="rounded-3xl border border-border/70 bg-background/90 p-3 shadow-sm">
                 <Textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
