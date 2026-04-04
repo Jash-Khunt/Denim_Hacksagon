@@ -576,6 +576,17 @@ const AssistantWorkspace = ({
                   <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
                     What do you want to ask?
                   </p>
+                  <div className="mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
+                      Ctrl+Shift+K New chat
+                    </Badge>
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
+                      Ctrl+Shift+L Toggle history
+                    </Badge>
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
+                      Ctrl+Shift+F Fullscreen
+                    </Badge>
+                  </div>
                   <div className="mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-2">
                     {starterPrompts.map((prompt) => (
                       <Button
