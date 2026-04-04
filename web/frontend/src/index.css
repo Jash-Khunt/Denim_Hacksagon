@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Anthropic-inspired warm light system */
+    --background: 34 58% 98%;
+    --foreground: 22 33% 14%;
+
+    --card: 32 42% 99%;
+    --card-foreground: 22 33% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 22 33% 14%;
+
+    --primary: 18 62% 58%;
+    --primary-foreground: 36 100% 99%;
+
+    --secondary: 27 56% 94%;
+    --secondary-foreground: 22 33% 14%;
+
+    --muted: 30 42% 94%;
+    --muted-foreground: 24 14% 43%;
+
+    --accent: 34 90% 90%;
+    --accent-foreground: 22 42% 26%;
+
+    --destructive: 356 76% 53%;
+    --destructive-foreground: 36 100% 99%;
+
+    --success: 152 69% 31%;
+    --success-foreground: 36 100% 99%;
+
+    --warning: 35 90% 52%;
+    --warning-foreground: 22 33% 14%;
+
+    --info: 24 78% 56%;
+    --info-foreground: 36 100% 99%;
+
+    --border: 26 36% 85%;
+    --input: 26 36% 85%;
+    --ring: 18 62% 58%;
+
+    --radius: 0.95rem;
+
+    --sidebar-background: 30 68% 96%;
+    --sidebar-foreground: 22 33% 14%;
+    --sidebar-primary: 18 62% 58%;
+    --sidebar-primary-foreground: 36 100% 99%;
+    --sidebar-accent: 30 72% 90%;
+    --sidebar-accent-foreground: 22 33% 14%;
+    --sidebar-border: 24 40% 83%;
+    --sidebar-ring: 18 62% 58%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(16 64% 52%) 0%, hsl(24 74% 63%) 100%);
+    --gradient-accent: linear-gradient(150deg, hsl(35 100% 96%) 0%, hsl(26 84% 88%) 45%, hsl(0 0% 100%) 100%);
+    --gradient-hero: linear-gradient(155deg, hsl(15 52% 43%) 0%, hsl(20 62% 54%) 52%, hsl(25 78% 67%) 100%);
+
+    --falling-pattern-color: hsla(35, 100%, 96%, 0.95);
+    --falling-pattern-bg: hsla(22, 74%, 56%, 0.34);
+
+    --shadow-sm: 0 2px 10px -3px rgba(153, 95, 52, 0.12);
+    --shadow-md: 0 8px 20px -8px rgba(153, 95, 52, 0.18), 0 3px 8px -4px rgba(153, 95, 52, 0.12);
+    --shadow-lg: 0 16px 40px -18px rgba(153, 95, 52, 0.26), 0 10px 18px -12px rgba(153, 95, 52, 0.18);
+    --shadow-card: 0 6px 18px -12px rgba(153, 95, 52, 0.18), 0 2px 8px -4px rgba(153, 95, 52, 0.11);
+    --shadow-card-hover: 0 20px 36px -18px rgba(153, 95, 52, 0.3), 0 12px 20px -16px rgba(153, 95, 52, 0.22);
+  }
+
+  .dark {
+    --background: 23 33% 10%;
+    --foreground: 30 56% 95%;
+
+    --card: 22 31% 12%;
+    --card-foreground: 30 56% 95%;
+
+    --popover: 22 31% 12%;
+    --popover-foreground: 30 56% 95%;
+
+    --primary: 20 72% 62%;
+    --primary-foreground: 22 33% 14%;
+
+    --secondary: 23 26% 18%;
+    --secondary-foreground: 30 56% 95%;
+
+    --muted: 22 24% 18%;
+    --muted-foreground: 26 23% 70%;
+
+    --accent: 22 30% 23%;
+    --accent-foreground: 30 56% 95%;
+
+    --destructive: 356 76% 58%;
+    --destructive-foreground: 30 56% 95%;
+
+    --success: 152 62% 46%;
+    --success-foreground: 30 56% 95%;
+
+    --warning: 35 90% 57%;
+    --warning-foreground: 22 33% 14%;
+
+    --info: 24 74% 62%;
+    --info-foreground: 30 56% 95%;
+
+    --border: 22 24% 24%;
+    --input: 22 24% 24%;
+    --ring: 20 72% 62%;
+
+    --sidebar-background: 23 32% 11%;
+    --sidebar-foreground: 30 56% 95%;
+    --sidebar-primary: 20 72% 62%;
+    --sidebar-primary-foreground: 22 33% 14%;
+    --sidebar-accent: 22 30% 20%;
+    --sidebar-accent-foreground: 30 56% 95%;
+    --sidebar-border: 22 24% 18%;
+    --sidebar-ring: 20 72% 62%;
+
+    --falling-pattern-color: hsla(35, 100%, 92%, 0.9);
+    --falling-pattern-bg: hsla(20, 70%, 40%, 0.45);
+    
+    --shadow-card: 0 8px 22px -12px rgba(0, 0, 0, 0.45), 0 2px 8px -4px rgba(0, 0, 0, 0.35);
+    --shadow-card-hover: 0 18px 38px -16px rgba(0, 0, 0, 0.58), 0 8px 16px -12px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image:
+      radial-gradient(circle at 0% 0%, hsl(24 94% 78% / 0.28) 0, transparent 42%),
+      radial-gradient(circle at 100% 12%, hsl(30 96% 88% / 0.3) 0, transparent 38%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(36 40% 96%) 100%);
+    background-attachment: fixed;
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', system-ui, -apple-system, sans-serif;
+    @apply font-bold tracking-tight text-foreground;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Ultra-Premium Glass Cards */
+  .stat-card {
+    @apply bg-card/90 backdrop-blur-md rounded-2xl p-6 border border-border/60 transition-all duration-500 ease-out;
+    box-shadow: var(--shadow-card);
+  }
+
+  .stat-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px) scale(1.01);
+    @apply border-primary/20 bg-card;
+  }
+
+  /* Buttery Sidebar Items */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/70 transition-all duration-300 font-medium;
+  }
+
+  .nav-item.active {
+    @apply bg-primary text-primary-foreground shadow-sm;
+  }
+
+  /* Vibrant Soft Badges */
+  .status-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide transition-colors;
+  }
+  .status-present, .status-approved {
+    @apply bg-success/15 text-success border border-success/20;
+  }
+  .status-absent, .status-rejected {
+    @apply bg-destructive/15 text-destructive border border-destructive/20;
+  }
+  .status-pending {
+    @apply bg-warning/15 text-warning border border-warning/20;
+  }
+  .status-leave {
+    @apply bg-info/15 text-info border border-info/20;
+  }
+
+  /* Clean Data Tables */
+  .data-table {
+    @apply w-full text-sm font-sans;
+  }
+  .data-table th {
+    @apply text-left font-semibold text-muted-foreground py-4 px-4 border-b border-border/80 uppercase tracking-wider text-[11px];
+  }
+  .data-table td {
+    @apply py-4 px-4 border-b border-border/40 transition-colors duration-200;
+  }
+  .data-table tr {
+    @apply transition-colors duration-300;
+  }
+  .data-table tr:hover {
+    @apply bg-muted/30;
+  }
+
+  /* Mesh Gradients */
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+  .accent-gradient {
+    background: var(--gradient-accent);
+  }
+
+  /* Overriding Shadcn UI default buttons natively via apply for extra polish */
+  .button-premium {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-primary/30 hover:-translate-y-0.5 rounded-xl font-semibold;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) ease-out forwards;
+  }
+
+  /* Modern staggred animation delays */
+  .delay-75 { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+}
+
+/* React Day Picker Custom Premium Overrides */
+.rdp {
+  --rdp-cell-size: 44px !important;
+  --rdp-accent-color: hsl(var(--primary)) !important;
+  --rdp-background-color: hsl(var(--primary) / 0.1) !important;
+  @apply mx-auto font-sans;
+}
+
+.rdp-day_selected {
+  @apply text-primary-foreground shadow-md shadow-primary/30 font-bold transition-transform hover:scale-105;
+}
+
+.rdp-day--absent {
+  @apply bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 border border-transparent hover:border-destructive/30 transition-all;
+}
+
+.rdp-day--present {
+  @apply bg-success/10 text-success font-semibold hover:bg-success/20 border border-transparent hover:border-success/30 transition-all;
+}
+
+.rdp-day--leave {
+  @apply bg-info/10 text-info font-semibold hover:bg-info/20 border border-transparent hover:border-info/30 transition-all;
+}
+
+.rdp-day--today-ring {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background font-bold text-primary;
+}
