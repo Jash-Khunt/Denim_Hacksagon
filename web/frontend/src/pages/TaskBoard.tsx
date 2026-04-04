@@ -8,8 +8,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
@@ -27,31 +39,31 @@ const statusColumns: Array<{
   accent: string;
   badgeClass: string;
 }> = [
-    {
-      key: "todo",
-      label: "To Do",
-      accent: "border-[#fdba74]/50 bg-[#fff7ed]",
-      badgeClass: "border border-[#fdba74]/45 bg-[#ffedd5] text-[#9a3412]",
-    },
-    {
-      key: "in_progress",
-      label: "In Progress",
-      accent: "border-[#fb923c]/45 bg-[#ffedd5]",
-      badgeClass: "border border-[#fb923c]/45 bg-[#fed7aa] text-[#9a3412]",
-    },
-    {
-      key: "review",
-      label: "Review",
-      accent: "border-[#f97316]/45 bg-[#fed7aa]",
-      badgeClass: "border border-[#f97316]/40 bg-[#fdba74]/45 text-[#7c2d12]",
-    },
-    {
-      key: "done",
-      label: "Done",
-      accent: "border-[#ea580c]/40 bg-[#ffedd5]/80",
-      badgeClass: "border border-[#ea580c]/35 bg-[#fb923c]/35 text-[#7c2d12]",
-    },
-  ];
+  {
+    key: "todo",
+    label: "To Do",
+    accent: "border-[#fdba74]/50 bg-[#fff7ed]",
+    badgeClass: "border border-[#fdba74]/45 bg-[#ffedd5] text-[#9a3412]",
+  },
+  {
+    key: "in_progress",
+    label: "In Progress",
+    accent: "border-[#fb923c]/45 bg-[#ffedd5]",
+    badgeClass: "border border-[#fb923c]/45 bg-[#fed7aa] text-[#9a3412]",
+  },
+  {
+    key: "review",
+    label: "Review",
+    accent: "border-[#f97316]/45 bg-[#fed7aa]",
+    badgeClass: "border border-[#f97316]/40 bg-[#fdba74]/45 text-[#7c2d12]",
+  },
+  {
+    key: "done",
+    label: "Done",
+    accent: "border-[#ea580c]/40 bg-[#ffedd5]/80",
+    badgeClass: "border border-[#ea580c]/35 bg-[#fb923c]/35 text-[#7c2d12]",
+  },
+];
 
 const TaskBoard = () => {
   const { toast } = useToast();
@@ -84,7 +96,9 @@ const TaskBoard = () => {
       setIsLoading(true);
       const [taskResponse, employeeResponse] = await Promise.all([
         taskAPI.getTasks(),
-        isHr ? employeeAPI.getAllEmployees() : Promise.resolve({ employees: [] }),
+        isHr
+          ? employeeAPI.getAllEmployees()
+          : Promise.resolve({ employees: [] }),
       ]);
       setTasks(taskResponse.tasks);
       setEmployees(employeeResponse.employees || []);
@@ -160,26 +174,27 @@ const TaskBoard = () => {
       setIsSaving(true);
       const payload = isHr
         ? {
-          title: taskForm.title,
-          description: taskForm.description,
-          status: taskForm.status,
-          difficulty: taskForm.difficulty,
-          field: taskForm.field,
-          due_date: taskForm.due_date || null,
-          assignee_emp_id:
-            taskForm.assignee_emp_id === "unassigned"
-              ? ""
-              : taskForm.assignee_emp_id,
-        }
+            title: taskForm.title,
+            description: taskForm.description,
+            status: taskForm.status,
+            difficulty: taskForm.difficulty,
+            field: taskForm.field,
+            due_date: taskForm.due_date || null,
+            assignee_emp_id:
+              taskForm.assignee_emp_id === "unassigned"
+                ? ""
+                : taskForm.assignee_emp_id,
+          }
         : {
-          status: taskForm.status,
-        };
+            status: taskForm.status,
+          };
 
       await taskAPI.updateTask(selectedTaskId, payload as Partial<ProjectTask>);
       await Promise.all([loadBoard(), refreshTask()]);
       toast({
         title: "Ticket updated",
-        description: "The task board has been refreshed with your latest changes.",
+        description:
+          "The task board has been refreshed with your latest changes.",
       });
     } catch (error: unknown) {
       toast({
@@ -216,23 +231,37 @@ const TaskBoard = () => {
   };
 
   const totalTasks = tasks.length;
-  const autoAssignedCount = tasks.filter((task) => task.assignment_mode === "auto").length;
+  const autoAssignedCount = tasks.filter(
+    (task) => task.assignment_mode === "auto",
+  ).length;
   const reviewCount = tasks.filter((task) => task.human_intervention).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-[1.35rem] border border-[#fdba74]/45 bg-[#fff7ed] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Total tickets</p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{totalTasks}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Total tickets
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {totalTasks}
+          </p>
         </div>
         <div className="rounded-[1.35rem] border border-[#fb923c]/45 bg-[#ffedd5] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Auto assigned</p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{autoAssignedCount}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Auto assigned
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {autoAssignedCount}
+          </p>
         </div>
         <div className="rounded-[1.35rem] border border-[#f97316]/45 bg-[#fed7aa] p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">Needs review</p>
-          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">{reviewCount}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Needs review
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {reviewCount}
+          </p>
         </div>
       </div>
 
@@ -246,7 +275,8 @@ const TaskBoard = () => {
           <CircleDashed className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-lg font-semibold">No tickets yet</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Once a client uploads a PDF and the chatbot returns structured task JSON, tickets will appear here.
+            Once a client uploads a PDF and the chatbot returns structured task
+            JSON, tickets will appear here.
           </p>
         </div>
       ) : (
@@ -262,7 +292,9 @@ const TaskBoard = () => {
                     <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9a3412]">
                       {column.label}
                     </h2>
-                    <Badge className={`rounded-full border-0 px-2 py-0.5 text-[11px] ${column.badgeClass}`}>
+                    <Badge
+                      className={`rounded-full border-0 px-2 py-0.5 text-[11px] ${column.badgeClass}`}
+                    >
                       {column.items.length}
                     </Badge>
                   </div>
@@ -280,7 +312,9 @@ const TaskBoard = () => {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {task.title}
+                          </p>
                           <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                             {task.task_key}
                           </p>
@@ -294,7 +328,9 @@ const TaskBoard = () => {
                         <div className="flex items-center gap-1.5">
                           <Building2 className="h-3.5 w-3.5" />
                           <span className="truncate">
-                            {task.client_company_name || task.client_name || "Client"}
+                            {task.client_company_name ||
+                              task.client_name ||
+                              "Client"}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -303,8 +339,19 @@ const TaskBoard = () => {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <UserCircle2 className="h-3.5 w-3.5" />
-                          <span className="truncate">{task.assignee_name || "Unassigned"}</span>
+                          <span className="truncate">
+                            {task.assignee_name || "Unassigned"}
+                          </span>
                         </div>
+                        {task.due_date && (
+                          <div className="flex items-center gap-1.5 text-orange-600/80">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            <span className="truncate">
+                              Due:{" "}
+                              {format(new Date(task.due_date), "MMM d, yyyy")}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -315,7 +362,10 @@ const TaskBoard = () => {
         </section>
       )}
 
-      <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && closeTask()}>
+      <Sheet
+        open={!!selectedTaskId}
+        onOpenChange={(open) => !open && closeTask()}
+      >
         <SheetContent
           side="right"
           className="w-full overflow-y-auto border-border/60 bg-card px-0 sm:max-w-[840px]"
@@ -343,7 +393,8 @@ const TaskBoard = () => {
                   {selectedTask.title}
                 </SheetTitle>
                 <SheetDescription className="text-muted-foreground">
-                  {selectedTask.client_name} • {selectedTask.client_company_name}
+                  {selectedTask.client_name} •{" "}
+                  {selectedTask.client_company_name}
                 </SheetDescription>
               </SheetHeader>
 
@@ -356,16 +407,23 @@ const TaskBoard = () => {
                         <Input
                           value={taskForm.title}
                           onChange={(e) =>
-                            setTaskForm((prev) => ({ ...prev, title: e.target.value }))
+                            setTaskForm((prev) => ({
+                              ...prev,
+                              title: e.target.value,
+                            }))
                           }
                           className="border-border/60 bg-background"
                         />
                       ) : (
-                        <p className="text-sm leading-7 text-foreground/85">{selectedTask.title}</p>
+                        <p className="text-sm leading-7 text-foreground/85">
+                          {selectedTask.title}
+                        </p>
                       )}
                     </div>
                     <div className="mt-5 space-y-2">
-                      <Label className="text-muted-foreground">Description</Label>
+                      <Label className="text-muted-foreground">
+                        Description
+                      </Label>
                       {isHr ? (
                         <Textarea
                           rows={8}
@@ -380,7 +438,8 @@ const TaskBoard = () => {
                         />
                       ) : (
                         <p className="text-sm leading-7 text-foreground/85">
-                          {selectedTask.description || "No description added yet."}
+                          {selectedTask.description ||
+                            "No description added yet."}
                         </p>
                       )}
                     </div>
@@ -429,7 +488,10 @@ const TaskBoard = () => {
                                 {item.author_name}
                               </p>
                               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                                {format(new Date(item.created_at), "dd MMM yyyy")}
+                                {format(
+                                  new Date(item.created_at),
+                                  "dd MMM yyyy",
+                                )}
                               </p>
                             </div>
                             <p className="mt-2 text-sm leading-6 text-foreground/75">
@@ -444,7 +506,9 @@ const TaskBoard = () => {
 
                 <div className="space-y-4">
                   <div className="rounded-[1.5rem] border border-border/60 bg-background/60 p-5">
-                    <p className="text-sm font-medium text-foreground/80">Details</p>
+                    <p className="text-sm font-medium text-foreground/80">
+                      Details
+                    </p>
                     <div className="mt-4 space-y-4">
                       <div className="space-y-2">
                         <Label className="text-muted-foreground">Status</Label>
@@ -470,7 +534,9 @@ const TaskBoard = () => {
                       {isHr && (
                         <>
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Assignee</Label>
+                            <Label className="text-muted-foreground">
+                              Assignee
+                            </Label>
                             <Select
                               value={taskForm.assignee_emp_id}
                               onValueChange={(value) =>
@@ -484,7 +550,9 @@ const TaskBoard = () => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                <SelectItem value="unassigned">
+                                  Unassigned
+                                </SelectItem>
                                 {employees.map((employee) => (
                                   <SelectItem
                                     key={employee.emp_id}
@@ -498,11 +566,16 @@ const TaskBoard = () => {
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Difficulty</Label>
+                            <Label className="text-muted-foreground">
+                              Difficulty
+                            </Label>
                             <Select
                               value={taskForm.difficulty}
                               onValueChange={(value) =>
-                                setTaskForm((prev) => ({ ...prev, difficulty: value }))
+                                setTaskForm((prev) => ({
+                                  ...prev,
+                                  difficulty: value,
+                                }))
                               }
                             >
                               <SelectTrigger className="border-border/60 bg-background">
@@ -517,18 +590,25 @@ const TaskBoard = () => {
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Field</Label>
+                            <Label className="text-muted-foreground">
+                              Field
+                            </Label>
                             <Input
                               value={taskForm.field}
                               onChange={(e) =>
-                                setTaskForm((prev) => ({ ...prev, field: e.target.value }))
+                                setTaskForm((prev) => ({
+                                  ...prev,
+                                  field: e.target.value,
+                                }))
                               }
                               className="border-border/60 bg-background"
                             />
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Due date</Label>
+                            <Label className="text-muted-foreground">
+                              Due date
+                            </Label>
                             <Input
                               type="date"
                               value={taskForm.due_date}
@@ -547,17 +627,23 @@ const TaskBoard = () => {
                   </div>
 
                   <div className="rounded-[1.5rem] border border-border/60 bg-background/60 p-5">
-                    <p className="text-sm font-medium text-foreground/80">Context</p>
+                    <p className="text-sm font-medium text-foreground/80">
+                      Context
+                    </p>
                     <div className="mt-4 space-y-3 text-sm text-foreground/75">
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4" />
-                        <span>{selectedTask.client_company_name || "Client company"}</span>
+                        <span>
+                          {selectedTask.client_company_name || "Client company"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
                         <span>
                           Confidence {selectedTask.confidence_flag}
-                          {selectedTask.human_intervention ? " • Needs review" : ""}
+                          {selectedTask.human_intervention
+                            ? " • Needs review"
+                            : ""}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -570,7 +656,9 @@ const TaskBoard = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <UserCircle2 className="h-4 w-4" />
-                        <span>{selectedTask.assignee_name || "Unassigned"}</span>
+                        <span>
+                          {selectedTask.assignee_name || "Unassigned"}
+                        </span>
                       </div>
                     </div>
                   </div>

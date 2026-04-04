@@ -153,12 +153,15 @@ export const connectionAPI = {
     connectionId: string,
     status: "connected" | "declined",
   ) => {
-    const response = await fetch(`${API_BASE_URL}/connections/${connectionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/connections/${connectionId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      },
+    );
     return handleResponse<{ message: string; connection: ClientConnection }>(
       response,
     );
@@ -216,6 +219,26 @@ export const taskAPI = {
     });
     return handleResponse<{ message: string; tasks: ProjectTask[] }>(response);
   },
+
+  sendDueInTwoDaysReminders: async (
+    type: "upcoming" | "overdue" = "upcoming",
+  ) => {
+    const response = await fetch(
+      `${API_BASE_URL}/tasks/reminders/due-in-two-days`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type }),
+      },
+    );
+    return handleResponse<{
+      message: string;
+      type?: "upcoming" | "overdue";
+      employeesNotified: number;
+      tasksIncluded: number;
+    }>(response);
+  },
 };
 
 export const jiraAPI = {
@@ -265,7 +288,11 @@ export const jiraAPI = {
         url: string;
         assignmentStatus?: string;
       }>;
-      errors?: Array<{ task_key?: string; title: string; error: string | string[] }>;
+      errors?: Array<{
+        task_key?: string;
+        title: string;
+        error: string | string[];
+      }>;
     }>(response);
   },
 };

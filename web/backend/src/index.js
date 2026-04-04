@@ -18,6 +18,7 @@ import jiraRoutes from "./routes/jira.route.js";
 import connectionRoutes from "./routes/connection.route.js";
 import taskRoutes from "./routes/task.route.js";
 import assistantRoutes from "./routes/assistant.route.js";
+import { initializeTaskScheduler } from "./lib/task-scheduler.js";
 import cors from "cors";
 const app = express();
 app.use(express.json());
@@ -53,6 +54,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 const startServer = async () => {
   await testConnection();
   await ensureWorkflowSchema();
+  initializeTaskScheduler();
 
   app.listen(PORT, () => {
     console.log(`>>> Server is running on http://localhost:${PORT}`);
