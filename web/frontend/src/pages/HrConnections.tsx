@@ -7,7 +7,6 @@ import { connectionAPI } from "@/services/api";
 import { ClientConnection } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Building2,
   CheckCheck,
   FileText,
   Loader2,
@@ -62,6 +61,10 @@ const HrConnections = () => {
     [connections],
   );
 
+  const pendingCount = connections.filter((item) => item.status === "pending").length;
+  const connectedCount = connections.filter((item) => item.status === "connected").length;
+  const totalUploads = connections.reduce((sum, item) => sum + (item.upload_count || 0), 0);
+
   const getAvatarUrl = (path?: string | null) => {
     if (!path) return undefined;
     if (path.startsWith("http")) return path;
@@ -104,49 +107,32 @@ const HrConnections = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-card shadow-lg">
-        <div className="grid gap-0 xl:grid-cols-[1.06fr_0.94fr]">
-          <div className="relative overflow-hidden px-8 py-9">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,130,77,0.22),transparent_42%),linear-gradient(140deg,rgba(255,255,255,0.58),rgba(255,247,242,0.92))]" />
-            <div className="relative space-y-5">
-              <Badge className="rounded-full bg-primary/15 px-4 py-1 text-primary hover:bg-primary/15">
-                HR Intake Approval
-              </Badge>
-              <h1 className="max-w-2xl text-4xl font-bold leading-tight">
-                Review incoming client connection requests, approve the right partnerships, and unlock project intake.
-              </h1>
-              <p className="max-w-xl text-muted-foreground">
-                Once you approve a client, their PDF uploads route into your task
-                board and the extracted chatbot tickets stay connected to that
-                client account.
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-border/60 bg-gradient-to-br from-accent/70 via-background to-background px-8 py-9 xl:border-l xl:border-t-0">
-            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
-              <div className="rounded-[1.5rem] border border-border/60 bg-background/80 p-5">
-                <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {connections.filter((item) => item.status === "pending").length}
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] border border-border/60 bg-background/80 p-5">
-                <p className="text-sm text-muted-foreground">Connected</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {connections.filter((item) => item.status === "connected").length}
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] border border-border/60 bg-background/80 p-5">
-                <p className="text-sm text-muted-foreground">Client uploads</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {connections.reduce((sum, item) => sum + (item.upload_count || 0), 0)}
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-[1.35rem] border border-[#fdba74]/45 bg-[#fff7ed] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Pending
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {pendingCount}
+          </p>
         </div>
-      </section>
+        <div className="rounded-[1.35rem] border border-[#fb923c]/45 bg-[#ffedd5] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Connected
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {connectedCount}
+          </p>
+        </div>
+        <div className="rounded-[1.35rem] border border-[#f97316]/45 bg-[#fed7aa] p-5 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a3412]">
+            Client uploads
+          </p>
+          <p className="mt-2 text-4xl font-extrabold leading-none tracking-tight text-[#7c2d12] tabular-nums">
+            {totalUploads}
+          </p>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
@@ -186,12 +172,15 @@ const HrConnections = () => {
                   No {status} requests.
                 </div>
               ) : (
-                <div className="grid gap-5 xl:grid-cols-2">
+                <div className="grid gap-5 justify-items-start xl:grid-cols-2">
                   {items.map((connection) => (
-                    <Card key={connection.connection_id} className="border-border/60 bg-card/95">
-                      <CardContent className="space-y-5 p-6">
-                        <div className="flex items-start gap-4">
-                          <Avatar className="h-16 w-16 border border-border/60">
+                    <Card
+                      key={connection.connection_id}
+                      className="w-full max-w-[350px] border-border/60 bg-card/95"
+                    >
+                      <CardContent className="space-y-4 p-5">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-12 w-12 border border-border/60">
                             <AvatarImage src={getAvatarUrl(connection.profile_picture)} />
                             <AvatarFallback className="bg-primary/10 text-primary">
                               {getInitials(connection.name)}
@@ -199,52 +188,44 @@ const HrConnections = () => {
                           </Avatar>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-lg font-semibold">{connection.name}</p>
-                              <Badge
-                                className="capitalize"
-                                variant={
-                                  connection.status === "connected"
-                                    ? "default"
-                                    : connection.status === "declined"
-                                      ? "destructive"
-                                      : "secondary"
-                                }
-                              >
-                                {connection.status}
-                              </Badge>
+                              <p className="truncate text-base font-semibold">{connection.name}</p>
                             </div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="mt-0.5 text-sm text-muted-foreground">
                               {connection.company_name}
-                            </p>
-                            <p className="mt-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                              Requested {connection.last_requested_mode}
                             </p>
                           </div>
                         </div>
 
-                        <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            <span className="truncate">{connection.email}</span>
+                        <div className="gap-2 text-sm m-1 text-muted-foreground">
+                          <div className="m-1">
+                            <div className="mr-1 inline-flex min-w-0 items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5">
+                              <Mail className="h-4 w-4" />
+                              <span className="truncate">{connection.email}</span>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5">
+                              <Phone className="h-4 w-4" />
+                              <span>{connection.phone || "Phone not added"}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            <span>{connection.phone || "Phone not added"}</span>
+                          <div className="m-1">
+                            <div className="mr-1 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5">
+                              <FileText className="h-4 w-4" />
+                              <span>
+                                {connection.upload_count || 0} uploads
+                              </span>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5">
+                              <CheckCheck className="h-4 w-4" />
+                              <span>
+                                {connection.task_count || 0} tickets
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            <span>{connection.company_name || "Company not added"}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            <span>
-                              {connection.upload_count || 0} uploads, {connection.task_count || 0} tickets
-                            </span>
-                          </div>
+
                         </div>
 
                         {connection.address && (
-                          <div className="rounded-[1.25rem] border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <div className="rounded-[1rem] border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                             {connection.address}
                           </div>
                         )}
@@ -277,15 +258,7 @@ const HrConnections = () => {
                               Decline
                             </Button>
                           </div>
-                        ) : status === "connected" ? (
-                          <div className="rounded-[1.25rem] border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">
-                            This client is approved and can upload PDFs directly into your workspace.
-                          </div>
-                        ) : (
-                          <div className="rounded-[1.25rem] border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                            This request was declined. The client must send a fresh request to restart the process.
-                          </div>
-                        )}
+                        ) : null}
                       </CardContent>
                     </Card>
                   ))}
