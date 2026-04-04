@@ -1,10 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
+import AssistantWorkspace from '@/components/assistant/AssistantWorkspace';
 import {
-  MessageSquare,
   LayoutList,
-  ArrowRight,
-  Bot,
+  Sparkles,
   Zap,
 } from 'lucide-react';
 
@@ -14,57 +13,45 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Two-column layout for future features */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[580px]">
-        {/* Left Side — Future AI Chatbot */}
-        <div className="lg:col-span-3">
-          <Card className="h-full border-dashed border-2 border-border/60">
-            <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center min-h-[580px]">
-              <div className="p-5 rounded-full bg-primary/5 mb-6 relative">
-                <Bot className="w-12 h-12 text-primary/40" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-400/50 animate-pulse" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground/80 mb-2">
-                AI Assistant
-              </h3>
-              <p className="text-muted-foreground max-w-xs mb-6 px-4">
-                {isHr
-                  ? 'Upload client PDFs, chat with AI to extract tasks, and auto-generate Jira tickets for your team.'
-                  : 'Chat with the AI assistant to get help with tasks, ask questions, and boost your productivity.'
-                }
-              </p>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)] min-h-[760px]">
+        <AssistantWorkspace />
 
-              {/* Fake chat preview */}
-              <div className="w-full max-w-xs space-y-3 px-4">
-                <div className="flex gap-2 items-start">
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-3.5 h-3.5 text-primary/50" />
-                  </div>
-                  <div className="bg-muted/60 rounded-xl rounded-tl-none px-3 py-2 text-xs text-muted-foreground text-left">
-                    Hi! I'm your AI assistant. I'll help you manage tasks efficiently.
-                  </div>
-                </div>
-                <div className="flex gap-2 items-start justify-end">
-                  <div className="bg-primary/10 rounded-xl rounded-tr-none px-3 py-2 text-xs text-muted-foreground text-left">
-                    {isHr ? 'Extract tasks from the uploaded PDF...' : 'Show me my pending tasks...'}
-                  </div>
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-3.5 h-3.5 text-primary/50" />
-                  </div>
+        <div className="space-y-6">
+          <Card className="border-border/70 bg-card/90 backdrop-blur-md shadow-card overflow-hidden">
+            <CardContent className="p-0">
+              <div className="border-b border-border/70 bg-muted/30 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">AI Workflow</h3>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 text-sm text-primary/60 mt-6">
-                <Zap className="w-4 h-4" />
-                <span>Coming Soon</span>
+              <div className="space-y-4 p-5">
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-sm font-semibold">Connected pipeline</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    The assistant is wired for a Pathway RAG backend and will answer from the indexed client document set.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {[
+                    "Document-grounded answers",
+                    "Task extraction and summaries",
+                    "Conversation history in browser storage",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-medium">{item}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-        {/* Right Side — Future Jira Tickets / Tasks */}
-        <div className="lg:col-span-2">
-          <Card className="h-full border-dashed border-2 border-border/60">
-            <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center min-h-[480px]">
+
+          <Card className="border-dashed border-2 border-border/60 bg-card/70 backdrop-blur-sm shadow-card">
+            <CardContent className="flex min-h-[250px] flex-col items-center justify-center text-center">
               <div className="p-5 rounded-full bg-primary/5 mb-6">
                 <LayoutList className="w-12 h-12 text-primary/40" />
               </div>
@@ -84,8 +71,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
-
-
       </div>
     </div>
   );
