@@ -84,10 +84,14 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="relative min-h-screen flex bg-background/80">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute top-24 right-0 h-80 w-80 rounded-full bg-accent/60 blur-3xl" />
+      </div>
       {/* SIDEBAR */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r fixed h-full z-10">
-        <div className="p-6 border-b">
+      <aside className="hidden lg:flex flex-col w-64 bg-sidebar/90 backdrop-blur-sm border-r border-sidebar-border fixed h-full z-10">
+        <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2 font-bold text-xl text-primary">
             {/* You can put an <img> tag here for user.logo if available */}
             <span>{user?.company_name || "DayFlow"}</span>
@@ -106,7 +110,7 @@ const DashboardLayout = () => {
                 `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    : "text-foreground/70 hover:bg-accent hover:text-foreground"
                 }`
               }
             >
@@ -116,7 +120,7 @@ const DashboardLayout = () => {
           ))}
         </div>
 
-        <div className="p-4 border-t bg-gray-50">
+        <div className="p-4 border-t border-sidebar-border bg-sidebar/70">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               {user?.name?.charAt(0)}
@@ -142,8 +146,8 @@ const DashboardLayout = () => {
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 lg:ml-64 min-h-screen transition-all duration-300">
         {/* Mobile Header (optional, simplified) */}
-        <div className="lg:hidden p-4 bg-white border-b flex justify-between items-center sticky top-0 z-20">
-          <span className="font-bold">DayFlow</span>
+        <div className="lg:hidden p-4 bg-card/90 backdrop-blur-sm border-b border-border/70 flex justify-between items-center sticky top-0 z-20">
+          <span className="font-bold">Clautzel</span>
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Log out
           </Button>
