@@ -1,4 +1,5 @@
 import axios from "axios";
+import { pool } from "../lib/db.js";
 
 const PATHWAY_URL = (process.env.PATHWAY_URL || "http://localhost:8000").replace(
   /\/$/,
@@ -75,6 +76,153 @@ const extractSourceBuckets = (payload) => {
   };
 };
 
+const getAssistantOwner = (user) => {
+  if (user.role === "hr") {
+    return { userRole: "hr", userId: user.hr_id };
+  }
+
+  if (user.role === "employee") {
+    return { userRole: "employee", userId: user.emp_id };
+  }
+
+  return { userRole: "client", userId: user.client_id };
+};
+
+const getTitleFromPrompt = (prompt) => prompt.trim().slice(0, 42) || "New conversation";
+
+const extractEvidence = (payload) => {
+  const buckets = extractSourceBuckets(payload);
+
+  return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+
+      const record = entry;
+      const label = [
+        record.path,
+        record.filepath,
+        record.url,
+        record.title,
+        record.source,
+        record.name,
+      ].find((value) => typeof value === "string" && value.trim().length > 0);
+
+      return label ? String(label) : null;
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+};
+
+const normalizeContextDocs = (payload) => {
+  const buckets = extractSourceBuckets(payload);
+
+  return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => {
+      const record = entry;
+
+      return {
+        text:
+          typeof record.text === "string"
+            ? record.text
+            : typeof record.content === "string"
+              ? record.content
+              : "",
+        path:
+          typeof record.path === "string"
+            ? record.path
+            : typeof record.filepath === "string"
+              ? record.filepath
+              : typeof record.url === "string"
+                ? record.url
+                : typeof record.title === "string"
+                  ? record.title
+                  : typeof record.source === "string"
+                    ? record.source
+                    : typeof record.name === "string"
+                      ? record.name
+                      : "",
+      };
+    })
+    .filter((entry) => entry.text || entry.path)
+    .slice(0, 10);
+};
+
+const mapThreadRow = (row) => ({
+  id: row.thread_id,
+  title: row.title,
+  messages: [],
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const mapQuestionRowsToMessages = (rows) =>
+  rows.flatMap((row) => {
+    const messages = [
+      {
+        id: `${row.question_id}:user`,
+        role: "user",
+        content: row.query,
+        createdAt: row.created_at,
+      },
+    ];
+
+    if (row.status === "pending") {
+      return messages;
+    }
+
+    messages.push({
+      id: `${row.question_id}:assistant`,
+      role: "assistant",
+      content:
+        row.status === "error"
+          ? row.error_message || "Failed to reach the assistant"
+          : row.response || "No response received from the assistant.",
+      createdAt: row.updated_at,
+      sources: Array.isArray(row.evidence) ? row.evidence : [],
+      error: row.status === "error",
+    });
+
+    return messages;
+  });
+
+const buildThreadsFromRows = (threadRows, questionRows) => {
+  const threadsById = new Map(
+    threadRows.map((row) => [row.thread_id, mapThreadRow(row)]),
+  );
+
+  for (const row of questionRows) {
+    const thread = threadsById.get(row.thread_id);
+    if (!thread) continue;
+
+    thread.messages.push(...mapQuestionRowsToMessages([row]));
+  }
+
+  return [...threadsById.values()];
+};
+
+const getOwnedThread = async (threadId, owner) => {
+  const result = await pool.query(
+    `SELECT thread_id, title, created_at, updated_at
+    FROM assistant_threads
+    WHERE thread_id = $1 AND user_role = $2 AND user_id = $3`,
+    [threadId, owner.userRole, owner.userId],
+  );
+
+  return result.rows[0] ? mapThreadRow(result.rows[0]) : null;
+};
+
+const createThreadRecord = async (owner, title = "New conversation") => {
+  const result = await pool.query(
+    `INSERT INTO assistant_threads (user_role, user_id, title)
+    VALUES ($1, $2, $3)
+    RETURNING thread_id, title, created_at, updated_at`,
+    [owner.userRole, owner.userId, title],
+  );
+
+  return mapThreadRow(result.rows[0]);
+};
+
 const requestPathwayAnswer = async (prompt, options) => {
   let lastEndpointError = null;
 
@@ -107,6 +255,60 @@ const requestPathwayAnswer = async (prompt, options) => {
   throw lastEndpointError || new Error("No supported Pathway assistant endpoint is available");
 };
 
+export const getAssistantThreads = async (req, res) => {
+  const owner = getAssistantOwner(req.user);
+
+  try {
+    const [threadResult, questionResult] = await Promise.all([
+      pool.query(
+        `SELECT thread_id, title, created_at, updated_at
+        FROM assistant_threads
+        WHERE user_role = $1 AND user_id = $2
+        ORDER BY updated_at DESC`,
+        [owner.userRole, owner.userId],
+      ),
+      pool.query(
+        `SELECT
+          q.question_id,
+          q.thread_id,
+          q.query,
+          q.response,
+          q.evidence,
+          q.context_docs,
+          q.status,
+          q.error_message,
+          q.created_at,
+          q.updated_at
+        FROM assistant_questions q
+        JOIN assistant_threads t
+          ON t.thread_id = q.thread_id
+        WHERE t.user_role = $1 AND t.user_id = $2
+        ORDER BY q.created_at ASC`,
+        [owner.userRole, owner.userId],
+      ),
+    ]);
+
+    return res.status(200).json({
+      threads: buildThreadsFromRows(threadResult.rows, questionResult.rows),
+    });
+  } catch (error) {
+    console.error("Error in getAssistantThreads:", error.message);
+    return res.status(500).json({ message: "Failed to fetch assistant history" });
+  }
+};
+
+export const createAssistantThread = async (req, res) => {
+  const owner = getAssistantOwner(req.user);
+
+  try {
+    const thread = await createThreadRecord(owner);
+    return res.status(201).json({ thread });
+  } catch (error) {
+    console.error("Error in createAssistantThread:", error.message);
+    return res.status(500).json({ message: "Failed to create conversation" });
+  }
+};
+
 export const askAssistant = async (req, res) => {
   const prompt = req.body?.prompt?.trim() || req.body?.query?.trim() || "";
 
@@ -114,7 +316,54 @@ export const askAssistant = async (req, res) => {
     return res.status(400).json({ message: "Prompt is required" });
   }
 
+  const owner = getAssistantOwner(req.user);
+  let thread = null;
+  let question = null;
+
   try {
+    if (req.body?.threadId) {
+      thread = await getOwnedThread(req.body.threadId, owner);
+
+      if (!thread) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+    } else {
+      thread = await createThreadRecord(owner, getTitleFromPrompt(prompt));
+    }
+
+    if (thread.title === "New conversation") {
+      const title = getTitleFromPrompt(prompt);
+      const titleResult = await pool.query(
+        `UPDATE assistant_threads
+        SET title = $2, updated_at = NOW()
+        WHERE thread_id = $1
+        RETURNING thread_id, title, created_at, updated_at`,
+        [thread.id, title],
+      );
+      thread = mapThreadRow(titleResult.rows[0]);
+    }
+
+    const insertedQuestion = await pool.query(
+      `INSERT INTO assistant_questions (
+        thread_id,
+        user_role,
+        user_id,
+        query,
+        status
+      )
+      VALUES ($1, $2, $3, $4, 'pending')
+      RETURNING question_id, created_at, updated_at`,
+      [thread.id, owner.userRole, owner.userId, prompt],
+    );
+    question = insertedQuestion.rows[0];
+
+    await pool.query(
+      `UPDATE assistant_threads
+      SET updated_at = NOW()
+      WHERE thread_id = $1`,
+      [thread.id],
+    );
+
     const rawData = await requestPathwayAnswer(prompt, {
       filters: req.body?.filters,
       model: req.body?.model,
@@ -122,10 +371,42 @@ export const askAssistant = async (req, res) => {
     });
     const answer = extractAnswer(rawData) || "No response received from the assistant.";
     const sourceBuckets = extractSourceBuckets(rawData);
+    const evidence = extractEvidence(rawData);
+    const contextDocs = normalizeContextDocs(rawData);
+
+    await pool.query(
+      `UPDATE assistant_questions
+      SET
+        response = $2,
+        evidence = $3::jsonb,
+        context_docs = $4::jsonb,
+        status = 'answered',
+        error_message = NULL,
+        updated_at = NOW()
+      WHERE question_id = $1`,
+      [
+        question.question_id,
+        answer,
+        JSON.stringify(evidence),
+        JSON.stringify(contextDocs),
+      ],
+    );
+
+    await pool.query(
+      `UPDATE assistant_threads
+      SET updated_at = NOW()
+      WHERE thread_id = $1`,
+      [thread.id],
+    );
 
     return res.status(200).json({
+      threadId: thread.id,
+      questionId: question.question_id,
+      createdAt: question.created_at,
       answer,
       response: answer,
+      evidence,
+      contextDocs,
       ...sourceBuckets,
     });
   } catch (error) {
@@ -143,7 +424,73 @@ export const askAssistant = async (req, res) => {
         error.message ||
         "Failed to get response from Pathway";
 
-    return res.status(502).json({ message });
+    if (question?.question_id) {
+      try {
+        await pool.query(
+          `UPDATE assistant_questions
+          SET
+            status = 'error',
+            error_message = $2,
+            updated_at = NOW()
+          WHERE question_id = $1`,
+          [question.question_id, message],
+        );
+
+        await pool.query(
+          `UPDATE assistant_threads
+          SET updated_at = NOW()
+          WHERE thread_id = $1`,
+          [thread.id],
+        );
+      } catch (dbError) {
+        console.error("Error while saving assistant failure:", dbError.message);
+      }
+    }
+
+    return res.status(502).json({
+      message,
+      threadId: thread?.id || null,
+      questionId: question?.question_id || null,
+    });
+  }
+};
+
+export const deleteAssistantThread = async (req, res) => {
+  const owner = getAssistantOwner(req.user);
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM assistant_threads
+      WHERE thread_id = $1 AND user_role = $2 AND user_id = $3
+      RETURNING thread_id`,
+      [req.params.threadId, owner.userRole, owner.userId],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    return res.status(200).json({ message: "Conversation deleted" });
+  } catch (error) {
+    console.error("Error in deleteAssistantThread:", error.message);
+    return res.status(500).json({ message: "Failed to delete conversation" });
+  }
+};
+
+export const clearAssistantThreads = async (req, res) => {
+  const owner = getAssistantOwner(req.user);
+
+  try {
+    await pool.query(
+      `DELETE FROM assistant_threads
+      WHERE user_role = $1 AND user_id = $2`,
+      [owner.userRole, owner.userId],
+    );
+
+    return res.status(200).json({ message: "Assistant history cleared" });
+  } catch (error) {
+    console.error("Error in clearAssistantThreads:", error.message);
+    return res.status(500).json({ message: "Failed to clear assistant history" });
   }
 };
 
