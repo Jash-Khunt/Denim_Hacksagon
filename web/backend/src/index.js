@@ -17,6 +17,7 @@ import clientRoutes from "./routes/client.route.js";
 import jiraRoutes from "./routes/jira.route.js";
 import connectionRoutes from "./routes/connection.route.js";
 import taskRoutes from "./routes/task.route.js";
+import assistantRoutes from "./routes/assistant.route.js";
 import cors from "cors";
 const app = express();
 app.use(express.json());
@@ -44,6 +45,7 @@ app.use("/api/v1/leave", leaveRoutes);
 app.use("/api/v1/payroll", payrollRoutes);
 app.use("/api/v1/jira", jiraRoutes);
 app.use("/api/v1/tasks", taskRoutes);
+app.use("/api/v1/assistant", assistantRoutes);
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 

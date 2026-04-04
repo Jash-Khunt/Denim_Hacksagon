@@ -11,10 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowRight,
-  Bot,
   Clock3,
-  FileText,
   History,
   Loader2,
   MessageSquare,
@@ -23,7 +20,6 @@ import {
   Plus,
   RefreshCw,
   Send,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -84,6 +80,7 @@ const normalizeAnswer = (value: unknown) => {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
+    if (typeof record.response === "string") return record.response;
     if (typeof record.answer === "string") return record.answer;
     if (typeof record.message === "string") return record.message;
     return JSON.stringify(record, null, 2);
@@ -120,7 +117,11 @@ const extractSources = (payload: Record<string, unknown>) => {
 
 const AssistantWorkspace = () => {
   const { user } = useAuth();
-  const storageKey = useMemo(() => getStorageKey(user?.id), [user?.id]);
+  const userStorageId = useMemo(
+    () => user?.id || user?.hr_id || user?.emp_id || user?.client_id || user?.email,
+    [user?.client_id, user?.email, user?.emp_id, user?.hr_id, user?.id],
+  );
+  const storageKey = useMemo(() => getStorageKey(userStorageId), [userStorageId]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -284,6 +285,20 @@ const AssistantWorkspace = () => {
                 <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
                   What do you want to ask?
                 </p>
+                <div className="mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+                  {starterPrompts.map((prompt) => (
+                    <Button
+                      key={prompt}
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => void submitQuestion(prompt)}
+                      disabled={isSending}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
               </div>
             ) : null}
 
