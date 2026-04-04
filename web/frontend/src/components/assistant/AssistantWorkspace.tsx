@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  AssistantAnswer,
+  AssistantContextDoc,
   AssistantMessage,
   AssistantThread,
   assistantAPI,
@@ -28,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Clock3,
+  ExternalLink,
   History,
   Loader2,
   Maximize2,
@@ -54,12 +57,175 @@ const starterPrompts = [
   "What client requirements are repeated the most?",
   "Extract deadlines and delivery dates",
 ];
+const API_ROOT = (
+  import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1"
+).replace(/\/api\/v1\/?$/, "");
 
 const nowIso = () => new Date().toISOString();
 
 const createId = () =>
   globalThis.crypto?.randomUUID?.() ||
   `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const readString = (...values: unknown[]) => {
+  const match = values.find(
+    (value) => typeof value === "string" && value.trim().length > 0,
+  );
+
+  return typeof match === "string" ? match.trim() : "";
+};
+
+const toPathSegments = (value: string) =>
+  value
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+const getContextDocPath = (entry: Record<string, unknown>) => {
+  const metadata = isRecord(entry.metadata) ? entry.metadata : null;
+
+  return readString(
+    entry.path,
+    entry.filepath,
+    metadata?.path,
+    metadata?.filepath,
+    entry.url,
+    metadata?.url,
+    entry.title,
+    metadata?.title,
+    entry.source,
+    metadata?.source,
+    entry.name,
+    metadata?.name,
+  );
+};
+
+const toContextDoc = (entry: unknown): AssistantContextDoc | null => {
+  if (typeof entry === "string" && entry.trim().length > 0) {
+    return { path: entry.trim() };
+  }
+
+  if (!isRecord(entry)) {
+    return null;
+  }
+
+  const metadata = isRecord(entry.metadata) ? entry.metadata : null;
+  const path = getContextDocPath(entry);
+  const text = readString(
+    entry.text,
+    entry.content,
+    metadata?.text,
+    metadata?.content,
+  );
+  const previewUrl = readString(
+    entry.previewUrl,
+    entry.preview_url,
+    metadata?.previewUrl,
+    metadata?.preview_url,
+  );
+
+  if (!path) {
+    return null;
+  }
+
+  const doc: AssistantContextDoc = { path };
+  if (text) {
+    doc.text = text;
+  }
+  if (previewUrl) {
+    doc.previewUrl = previewUrl;
+  }
+
+  return doc;
+};
+
+const dedupeContextDocs = (docs: AssistantContextDoc[]) => {
+  const seen = new Set<string>();
+
+  return docs.filter((doc) => {
+    const key = doc.path.trim();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const getContextDocLabel = (doc: AssistantContextDoc) => {
+  const normalizedPath = doc.path.replace(/\\/g, "/");
+  return normalizedPath.split("/").filter(Boolean).at(-1) || doc.path;
+};
+
+const resolvePreviewUrl = (doc: AssistantContextDoc | null) => {
+  if (!doc) {
+    return null;
+  }
+
+  const explicitPreviewUrl = readString(doc.previewUrl, doc.preview_url);
+  if (explicitPreviewUrl) {
+    if (/^https?:\/\//i.test(explicitPreviewUrl)) {
+      return explicitPreviewUrl;
+    }
+
+    return explicitPreviewUrl.startsWith("/")
+      ? `${API_ROOT}${explicitPreviewUrl}`
+      : `${API_ROOT}/${explicitPreviewUrl}`;
+  }
+
+  const normalizedPath = doc.path.replace(/\\/g, "/").trim();
+  if (!/\.pdf(?:$|[?#])/i.test(normalizedPath)) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  if (normalizedPath.startsWith("/uploads/")) {
+    return `${API_ROOT}${normalizedPath}`;
+  }
+
+  if (normalizedPath.startsWith("uploads/")) {
+    return `${API_ROOT}/${normalizedPath}`;
+  }
+
+  const uploadsIndex = normalizedPath.indexOf("/uploads/");
+  if (uploadsIndex >= 0) {
+    return `${API_ROOT}/${normalizedPath.slice(uploadsIndex + 1)}`;
+  }
+
+  if (normalizedPath.startsWith("/assistant-documents/")) {
+    return `${API_ROOT}${normalizedPath}`;
+  }
+
+  if (normalizedPath.startsWith("assistant-documents/")) {
+    return `${API_ROOT}/${normalizedPath}`;
+  }
+
+  if (normalizedPath.startsWith("client/")) {
+    return `${API_ROOT}/assistant-documents/${toPathSegments(
+      normalizedPath.slice("client/".length),
+    )}`;
+  }
+
+  const pathwayClientToken = "/rag_model/pathway/client/";
+  const pathwayClientIndex = normalizedPath.indexOf(pathwayClientToken);
+  if (pathwayClientIndex >= 0) {
+    return `${API_ROOT}/assistant-documents/${toPathSegments(
+      normalizedPath.slice(pathwayClientIndex + pathwayClientToken.length),
+    )}`;
+  }
+
+  return `${API_ROOT}/assistant-documents/${toPathSegments(
+    getContextDocLabel({ path: normalizedPath }),
+  )}`;
+};
 
 const normalizeAnswer = (value: unknown): string => {
   // Already a plain string
@@ -100,34 +266,50 @@ const normalizeAnswer = (value: unknown): string => {
   return "No response received from the assistant.";
 };
 
-const extractSources = (payload: Record<string, unknown>) => {
-  const sourceBuckets = [
+const extractContextDocs = (payload: AssistantAnswer) => {
+  const buckets = [
+    payload.contextDocs,
     payload.context_docs,
     payload.docs,
     payload.sources,
   ].flatMap((bucket) => (Array.isArray(bucket) ? bucket : []));
 
-  return sourceBuckets
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
+  return dedupeContextDocs(
+    buckets
+      .map((entry) => toContextDoc(entry))
+      .filter((doc): doc is AssistantContextDoc => Boolean(doc)),
+  );
+};
 
-      const record = entry as Record<string, unknown>;
-      const labels = [
-        record.path,
-        record.filepath,
-        record.url,
-        record.title,
-        record.source,
-        record.name,
-      ];
-
-      const label = labels.find(
-        (item) => typeof item === "string" && item.trim().length > 0,
-      );
-      return label ? String(label) : null;
-    })
-    .filter((item): item is string => Boolean(item))
+const extractSources = (payload: Record<string, unknown>) => {
+  return extractContextDocs(payload as AssistantAnswer)
+    .map((doc) => doc.path)
     .slice(0, 4);
+};
+
+const getMessageContextDocs = (message: AssistantMessage) =>
+  dedupeContextDocs([
+    ...(message.contextDocs ?? []),
+    ...((message.sources ?? []).map((path) => ({ path }))),
+  ]);
+
+const getPreviewableContextDocs = (messages: AssistantMessage[]) => {
+  const docs: AssistantContextDoc[] = [];
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    for (const doc of getMessageContextDocs(message)) {
+      if (resolvePreviewUrl(doc)) {
+        docs.push(doc);
+      }
+    }
+  }
+
+  return dedupeContextDocs(docs);
 };
 
 type AssistantWorkspaceProps = {
@@ -148,11 +330,14 @@ const AssistantWorkspace = ({
   const [localIsFullscreen, setLocalIsFullscreen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedPreviewPath, setSelectedPreviewPath] = useState<string | null>(
+    null,
+  );
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const historyVisibilityBeforeFullscreenRef = useRef<boolean | null>(null);
+  const previousThreadIdRef = useRef<string | null>(null);
 
   const isFullscreen = isFullscreenProp ?? localIsFullscreen;
   const setIsFullscreen = useCallback(
@@ -239,31 +424,46 @@ const AssistantWorkspace = ({
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
   const activeMessages = activeThread?.messages ?? [];
+  const previewableContextDocs = getPreviewableContextDocs(activeMessages);
+  const selectedPreviewDoc =
+    previewableContextDocs.find((doc) => doc.path === selectedPreviewPath) ??
+    previewableContextDocs[0] ??
+    null;
+  const selectedPreviewUrl = resolvePreviewUrl(selectedPreviewDoc);
+  const selectedPreviewLabel = selectedPreviewDoc
+    ? getContextDocLabel(selectedPreviewDoc)
+    : "";
   const isActiveThreadFresh =
     Boolean(activeThread) &&
     activeMessages.length === 0 &&
     activeThread?.title === "New conversation";
   const historyCountLabel = `${threads.length} chat${threads.length === 1 ? "" : "s"}`;
-  const isHistoryPanelVisible = isHistoryVisible && !isFullscreen;
+  const isHistoryPanelVisible = isHistoryVisible;
 
   useEffect(() => {
-    if (isFullscreen) {
-      if (historyVisibilityBeforeFullscreenRef.current === null) {
-        historyVisibilityBeforeFullscreenRef.current = isHistoryVisible;
-      }
+    const hasThreadChanged = previousThreadIdRef.current !== activeThreadId;
+    previousThreadIdRef.current = activeThreadId;
 
-      if (isHistoryVisible) {
-        setIsHistoryVisible(false);
-      }
-
+    if (previewableContextDocs.length === 0) {
+      setSelectedPreviewPath(null);
       return;
     }
 
-    if (historyVisibilityBeforeFullscreenRef.current !== null) {
-      setIsHistoryVisible(historyVisibilityBeforeFullscreenRef.current);
-      historyVisibilityBeforeFullscreenRef.current = null;
-    }
-  }, [isFullscreen, isHistoryVisible]);
+    setSelectedPreviewPath((current) => {
+      if (hasThreadChanged) {
+        return previewableContextDocs[0].path;
+      }
+
+      if (
+        current &&
+        previewableContextDocs.some((doc) => doc.path === current)
+      ) {
+        return current;
+      }
+
+      return previewableContextDocs[0].path;
+    });
+  }, [activeThreadId, previewableContextDocs]);
 
   const createThread = useCallback(async () => {
     try {
@@ -337,12 +537,15 @@ const AssistantWorkspace = ({
         threadId,
         returnContextDocs: true,
       });
+      const contextDocs = extractContextDocs(response);
+      const nextPreviewDoc = contextDocs.find((doc) => resolvePreviewUrl(doc));
 
       const assistantMessage: AssistantMessage = {
         id: createId(),
         role: "assistant",
         content: normalizeAnswer(response),
         createdAt: nowIso(),
+        contextDocs,
         sources:
           Array.isArray(response.evidence) && response.evidence.length
             ? response.evidence
@@ -358,6 +561,10 @@ const AssistantWorkspace = ({
         messages: [...thread.messages, assistantMessage].slice(-MAX_MESSAGES),
         updatedAt: nowIso(),
       }));
+
+      if (nextPreviewDoc) {
+        setSelectedPreviewPath(nextPreviewDoc.path);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -542,197 +749,371 @@ const AssistantWorkspace = ({
         )}
       >
         <CardContent className="relative h-full p-0">
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
-              <div className="flex justify-end gap-2">
-                {!isFullscreen ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsHistoryVisible((current) => !current)}
-                    className="gap-2 text-muted-foreground"
-                  >
-                    {isHistoryVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-                    {isHistoryVisible ? "Hide History" : "Show History"}
-                  </Button>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsFullscreen((current) => !current)}
-                  className="gap-2 text-muted-foreground"
-                >
-                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                </Button>
-              </div>
-            </div>
-
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
-              {activeMessages.length === 0 ? (
-                <div className="flex h-full min-h-full flex-col items-center justify-center text-center">
-                  <h3 className="text-2xl font-bold">Hey there!</h3>
-                  <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-                    What do you want to ask?
-                  </p>
-                  <div className="mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2">
-                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-                      Ctrl+Shift+K New chat
-                    </Badge>
-                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-                      Ctrl+Shift+L Toggle history
-                    </Badge>
-                    <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-                      Ctrl+Shift+F Fullscreen
-                    </Badge>
-                  </div>
-                  <div className="mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-2">
-                    {starterPrompts.map((prompt) => (
-                      <Button
-                        key={prompt}
-                        type="button"
-                        variant="outline"
-                        className="rounded-full"
-                        onClick={() => void submitQuestion(prompt)}
-                        disabled={isSending}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {activeMessages.map((message) => {
-                const isUser = message.role === "user";
-
-                return (
-                  <div key={message.id} className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
-                    {!isUser ? (
-                      <Avatar className="mt-1 h-9 w-9 border border-primary/15 bg-primary/10">
-                        <AvatarFallback className="bg-transparent text-primary">AI</AvatarFallback>
-                      </Avatar>
-                    ) : null}
-
-                    <div
-                      className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${isUser
-                        ? "max-w-[min(38rem,100%)]"
-                        : "max-w-[min(52rem,100%)]"
-                        } ${isUser
-                          ? "rounded-tr-md bg-primary text-primary-foreground"
-                          : message.error
-                            ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
-                            : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
-                        }`}
+          <div className="relative flex h-full min-h-0 overflow-hidden">
+            <div
+              className={cn(
+                "grid min-h-0 min-w-0 flex-1",
+                isFullscreen
+                  ? "grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(280px,38vh)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-1"
+                  : "grid-cols-1",
+              )}
+            >
+              <div className="flex min-h-0 min-w-0 flex-col">
+                <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsHistoryVisible((current) => !current)}
+                      className="gap-2 text-muted-foreground"
                     >
-                      {isUser ? (
-                        <div className="whitespace-pre-wrap text-[15px] leading-7 text-primary-foreground">
-                          {message.content}
-                        </div>
+                      {isHistoryVisible ? (
+                        <PanelLeftClose className="h-4 w-4" />
                       ) : (
-                        <AssistantMessageContent content={message.content} />
+                        <PanelLeft className="h-4 w-4" />
                       )}
-
-                      <div className={`mt-3 flex items-center gap-2 text-[11px] ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                        <span>{isUser ? "You" : "Assistant"}</span>
-                        <span className="text-border">•</span>
-                        <span>{formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}</span>
-                        {message.error ? (
-                          <Badge variant="destructive" className="ml-1 rounded-full px-2 py-0 text-[10px]">
-                            Error
-                          </Badge>
-                        ) : null}
-                      </div>
-
-                      {message.sources && message.sources.length > 0 ? (
-                        <div className="mt-3 border-t border-border/60 pt-3">
-                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                            Sources
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {message.sources.map((source) => (
-                              <Badge key={source} variant="outline" className="max-w-full truncate rounded-full px-3 py-1 text-[11px]">
-                                {source}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {isUser ? (
-                      <Avatar className="mt-1 h-9 w-9 border border-border/70 bg-muted/40">
-                        <AvatarFallback className="bg-transparent text-muted-foreground">
-                          {user?.firstName?.[0] || user?.lastName?.[0] || user?.email?.[0] || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : null}
-                  </div>
-                );
-              })}
-
-              {isSending ? (
-                <div className="flex gap-3">
-                  <Avatar className="mt-1 h-9 w-9 border border-primary/15 bg-primary/10">
-                    <AvatarFallback className="bg-transparent text-primary">AI</AvatarFallback>
-                  </Avatar>
-                  <div className="rounded-3xl rounded-tl-md border border-border/70 bg-background/80 px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      Thinking with Pathway RAG...
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="shrink-0 border-t border-border/70 bg-muted/20 px-5 py-4">
-              <div className="rounded-3xl border border-border/70 bg-background/90 p-3 shadow-sm">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void submitQuestion(input);
-                    }
-                  }}
-                  placeholder={isSending ? "Waiting for the assistant..." : "Ask the assistant about the indexed documents..."}
-                  className="min-h-[60px] resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0"
-                  disabled={isSending}
-                />
-
-                <div className="mt-3 flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Enter to send. Shift+Enter adds a new line.
-                  </p>
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {errorMessage ? (
-                      <span className="mr-2 hidden text-xs text-destructive sm:inline">{errorMessage}</span>
-                    ) : null}
-                    <Button variant="ghost" size="sm" onClick={() => setInput("")} disabled={!input || isSending}>
-                      <RefreshCw className="h-4 w-4" />
-                      Clear
+                      {isHistoryVisible ? "Hide History" : "Show History"}
                     </Button>
                     <Button
-                      onClick={() => void submitQuestion(input)}
-                      disabled={!input.trim() || isSending}
-                      className="button-premium rounded-xl"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsFullscreen((current) => !current)}
+                      className="gap-2 text-muted-foreground"
                     >
-                      {isSending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      {isFullscreen ? (
+                        <Minimize2 className="h-4 w-4" />
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Maximize2 className="h-4 w-4" />
                       )}
-                      Send
+                      {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                     </Button>
                   </div>
                 </div>
+
+                <div
+                  ref={scrollRef}
+                  className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5"
+                >
+                  {activeMessages.length === 0 ? (
+                    <div className="flex h-full min-h-full flex-col items-center justify-center text-center">
+                      <h3 className="text-2xl font-bold">Hey there!</h3>
+                      <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+                        What do you want to ask?
+                      </p>
+                      <div className="mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1 text-[11px]"
+                        >
+                          Ctrl+Shift+K New chat
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1 text-[11px]"
+                        >
+                          Ctrl+Shift+L Toggle history
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1 text-[11px]"
+                        >
+                          Ctrl+Shift+F Fullscreen
+                        </Badge>
+                      </div>
+                      <div className="mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+                        {starterPrompts.map((prompt) => (
+                          <Button
+                            key={prompt}
+                            type="button"
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => void submitQuestion(prompt)}
+                            disabled={isSending}
+                          >
+                            {prompt}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeMessages.map((message) => {
+                    const isUser = message.role === "user";
+                    const messageContextDocs = getMessageContextDocs(message);
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                      >
+                        {!isUser ? (
+                          <Avatar className="mt-1 h-9 w-9 border border-primary/15 bg-primary/10">
+                            <AvatarFallback className="bg-transparent text-primary">
+                              AI
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : null}
+
+                        <div
+                          className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${
+                            isUser
+                              ? isFullscreen
+                                ? "max-w-[min(32rem,100%)]"
+                                : "max-w-[min(38rem,100%)]"
+                              : isFullscreen
+                                ? "max-w-[min(46rem,100%)]"
+                                : "max-w-[min(52rem,100%)]"
+                          } ${
+                            isUser
+                              ? "rounded-tr-md bg-primary text-primary-foreground"
+                              : message.error
+                                ? "rounded-tl-md border border-destructive/20 bg-destructive/5 text-foreground"
+                                : "rounded-tl-md border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96)),radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_38%)] text-foreground shadow-[0_14px_36px_-22px_rgba(153,95,52,0.35)]"
+                          }`}
+                        >
+                          {isUser ? (
+                            <div className="whitespace-pre-wrap text-[15px] leading-7 text-primary-foreground">
+                              {message.content}
+                            </div>
+                          ) : (
+                            <AssistantMessageContent content={message.content} />
+                          )}
+
+                          <div
+                            className={`mt-3 flex items-center gap-2 text-[11px] ${
+                              isUser
+                                ? "text-primary-foreground/70"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            <span>{isUser ? "You" : "Assistant"}</span>
+                            <span className="text-border">•</span>
+                            <span>
+                              {formatDistanceToNow(new Date(message.createdAt), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                            {message.error ? (
+                              <Badge
+                                variant="destructive"
+                                className="ml-1 rounded-full px-2 py-0 text-[10px]"
+                              >
+                                Error
+                              </Badge>
+                            ) : null}
+                          </div>
+
+                          {messageContextDocs.length > 0 ? (
+                            <div className="mt-3 border-t border-border/60 pt-3">
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                Sources
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {messageContextDocs.map((doc) => {
+                                  const previewUrl = resolvePreviewUrl(doc);
+                                  const isSelected =
+                                    previewUrl &&
+                                    selectedPreviewDoc?.path === doc.path;
+
+                                  return previewUrl ? (
+                                    <Button
+                                      key={doc.path}
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      title={doc.path}
+                                      onClick={() =>
+                                        setSelectedPreviewPath(doc.path)
+                                      }
+                                      className={cn(
+                                        "h-auto max-w-full rounded-full px-3 py-1 text-[11px]",
+                                        isSelected
+                                          ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                                          : "",
+                                      )}
+                                    >
+                                      {getContextDocLabel(doc)}
+                                    </Button>
+                                  ) : (
+                                    <Badge
+                                      key={doc.path}
+                                      variant="outline"
+                                      className="max-w-full truncate rounded-full px-3 py-1 text-[11px]"
+                                      title={doc.path}
+                                    >
+                                      {getContextDocLabel(doc)}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {isUser ? (
+                          <Avatar className="mt-1 h-9 w-9 border border-border/70 bg-muted/40">
+                            <AvatarFallback className="bg-transparent text-muted-foreground">
+                              {user?.firstName?.[0] ||
+                                user?.lastName?.[0] ||
+                                user?.email?.[0] ||
+                                "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+
+                  {isSending ? (
+                    <div className="flex gap-3">
+                      <Avatar className="mt-1 h-9 w-9 border border-primary/15 bg-primary/10">
+                        <AvatarFallback className="bg-transparent text-primary">
+                          AI
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="rounded-3xl rounded-tl-md border border-border/70 bg-background/80 px-4 py-3 shadow-sm">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          Thinking with Pathway RAG...
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="shrink-0 border-t border-border/70 bg-muted/20 px-5 py-4">
+                  <div className="rounded-3xl border border-border/70 bg-background/90 p-3 shadow-sm">
+                    <Textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void submitQuestion(input);
+                        }
+                      }}
+                      placeholder={
+                        isSending
+                          ? "Waiting for the assistant..."
+                          : "Ask the assistant about the indexed documents..."
+                      }
+                      className="min-h-[60px] resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0"
+                      disabled={isSending}
+                    />
+
+                    <div className="mt-3 flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Enter to send. Shift+Enter adds a new line.
+                      </p>
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        {errorMessage ? (
+                          <span className="mr-2 hidden text-xs text-destructive sm:inline">
+                            {errorMessage}
+                          </span>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setInput("")}
+                          disabled={!input || isSending}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Clear
+                        </Button>
+                        <Button
+                          onClick={() => void submitQuestion(input)}
+                          disabled={!input.trim() || isSending}
+                          className="button-premium rounded-xl"
+                        >
+                          {isSending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {isFullscreen ? (
+                <aside className="flex min-h-0 min-w-0 flex-col border-t border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)/0.96))] lg:border-l lg:border-t-0">
+                  <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          PDF Preview
+                        </p>
+                        <p className="mt-2 truncate text-sm font-semibold text-foreground">
+                          {selectedPreviewDoc
+                            ? selectedPreviewLabel
+                            : "Retrieved document will appear here"}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                          {selectedPreviewDoc?.path ||
+                            "The first PDF retrieved with an assistant answer opens here for quick confirmation."}
+                        </p>
+                      </div>
+                      {selectedPreviewUrl ? (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 rounded-full"
+                        >
+                          <a
+                            href={selectedPreviewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Open
+                          </a>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-hidden bg-muted/10">
+                    {selectedPreviewUrl ? (
+                      <iframe
+                        key={selectedPreviewUrl}
+                        title={`PDF preview: ${selectedPreviewLabel}`}
+                        src={`${selectedPreviewUrl}#toolbar=1&navpanes=0&view=FitH`}
+                        className="h-full w-full border-0 bg-background"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center p-6">
+                        <div className="max-w-md rounded-[1.75rem] border border-dashed border-border/70 bg-background/70 p-6 text-center shadow-sm">
+                          <p className="text-sm font-semibold text-foreground">
+                            No retrieved PDF selected
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Ask a question against the indexed documents and the
+                            top cited PDF will load here. You can switch
+                            documents from the source chips under each answer.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedPreviewDoc?.text ? (
+                    <div className="max-h-44 shrink-0 overflow-y-auto border-t border-border/70 bg-muted/15 px-5 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        Retrieved Excerpt
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                        {selectedPreviewDoc.text}
+                      </p>
+                    </div>
+                  ) : null}
+                </aside>
+              ) : null}
             </div>
-          </div>
 
           <button
             type="button"

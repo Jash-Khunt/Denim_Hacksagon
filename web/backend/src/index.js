@@ -6,6 +6,7 @@ import { ensureWorkflowSchema } from "./lib/schema.js";
 import express from "express";
 import path from "path";
 import cookieParser from "cookie-parser";
+import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/auth.route.js";
 import employeeRoutes from "./routes/employee.route.js";
@@ -35,6 +36,11 @@ app.use(
 );
 
 const PORT = process.env.PORT || 3001;
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const assistantDocumentsDir = path.resolve(
+  currentDir,
+  "../../../rag_model/pathway/client",
+);
 
 app.use("/api/v1/auth/users", authRoutes);
 app.use("/api/v1/hr", employeeRoutes);
@@ -49,6 +55,7 @@ app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/assistant", assistantRoutes);
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/assistant-documents", express.static(assistantDocumentsDir));
 
 const startServer = async () => {
   await testConnection();
