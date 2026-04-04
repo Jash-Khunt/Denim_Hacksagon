@@ -13,8 +13,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { HeroDitheringBackground } from "@/components/ui/hero-dithering-card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowRight, Upload, Eye, EyeOff, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  ArrowRight,
+  Upload,
+  Eye,
+  EyeOff,
+  Sparkles,
+} from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -24,6 +38,9 @@ const Auth = () => {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [signupAccountType, setSignupAccountType] = useState<"hr" | "client">(
+    "client",
+  );
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -37,6 +54,7 @@ const Auth = () => {
     password: "",
     confirmPassword: "",
     company_name: "",
+    address: "",
   });
   const [logo, setLogo] = useState<File | null>(null);
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
@@ -98,7 +116,7 @@ const Auth = () => {
       return;
     }
 
-    if (!logo) {
+    if (signupAccountType === "hr" && !logo) {
       toast({
         title: "Company Logo Required",
         description: "Please upload a company logo.",
@@ -110,11 +128,13 @@ const Auth = () => {
     setIsLoading(true);
 
     const success = await signup({
+      accountType: signupAccountType,
       name: signupData.name,
       phone: signupData.phone,
       email: signupData.email,
       password: signupData.password,
       company_name: signupData.company_name,
+      address: signupData.address,
       logo: logo,
       profile_picture: profilePicture,
     });
@@ -140,7 +160,10 @@ const Auth = () => {
     <div className="relative min-h-screen flex overflow-hidden">
       {/* Left Panel - Branding */}
       <div className="relative hidden overflow-hidden lg:flex lg:w-1/2 p-12 bg-black [mask-image:linear-gradient(to_right,black_0%,black_86%,transparent_100%)]">
-        <HeroDitheringBackground className="absolute inset-0" colorFront="#ff7a2f" />
+        <HeroDitheringBackground
+          className="absolute inset-0"
+          colorFront="#ff7a2f"
+        />
         <div className="absolute inset-0 bg-black/20" />
 
         <div className="relative z-10 flex w-full flex-col justify-between">
@@ -161,13 +184,16 @@ const Auth = () => {
 
           <div className="space-y-6">
             <h2 className="text-4xl font-bold text-primary-foreground leading-tight">
-              Every workday,
+              HR operations,
               <br />
-              <span className="text -orange-100">perfectly aligned.</span>
+              <span className="text-orange-100">
+                employee execution, and client intake.
+              </span>
             </h2>
             <p className="max-w-md font-medium text-lg text-orange-50/80">
-              Streamline your HR operations with our comprehensive management
-              system. From attendance to payroll, all automated.
+              Run the same platform for HR, employees, and clients. Upload
+              project briefs, connect with HR, and prepare chatbot-driven Jira
+              work from one place.
             </p>
           </div>
 
@@ -186,7 +212,7 @@ const Auth = () => {
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
             </div>
-              <h1 className="text-2xl font-bold">Clautzel</h1>
+            <h1 className="text-2xl font-bold">Clautzel</h1>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -258,21 +284,46 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              <Card className="border-0 shadow-lg h-[345px] flex flex-col">
+              <Card className="border-0 shadow-lg flex flex-col">
                 <CardHeader className="space-y-1">
                   <CardTitle className="text-2xl">Create account</CardTitle>
                   <CardDescription>
-                    Enter your details to get started
+                    Join as an HR lead or a client partner
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto scrollbar-hide">
                   <form onSubmit={handleSignup} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Account Type</Label>
+                      <Select
+                        value={signupAccountType}
+                        onValueChange={(value: "hr" | "client") =>
+                          setSignupAccountType(value)
+                        }
+                      >
+                        <SelectTrigger className="rounded-2xl border-border/70 bg-muted/40">
+                          <SelectValue placeholder="Choose account type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="hr">HR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex gap-3 items-end">
                       <div className="flex-1 space-y-2">
-                        <Label htmlFor="company_name">Company Name</Label>
+                        <Label htmlFor="company_name">
+                          {signupAccountType === "hr"
+                            ? "Company Name"
+                            : "Client / Organization Name"}
+                        </Label>
                         <Input
                           id="company_name"
-                          placeholder="Acme Inc."
+                          placeholder={
+                            signupAccountType === "hr"
+                              ? "Acme Inc."
+                              : "Northstar Ventures"
+                          }
                           value={signupData.company_name}
                           onChange={(e) =>
                             setSignupData({
@@ -283,36 +334,40 @@ const Auth = () => {
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="logo"
-                          className="text-center block text-sm font-medium"
-                        >
-                          Logo
-                        </Label>
-                        <label
-                          htmlFor="logo"
-                          className="flex items-center justify-center w-10 h-10 border-2 border-dashed border-input rounded-lg cursor-pointer hover:border-primary transition-colors"
-                        >
-                          {logo ? (
-                            <img
-                              src={URL.createObjectURL(logo)}
-                              alt="Logo preview"
-                              className="w-full h-full object-cover rounded-lg"
-                            />
-                          ) : (
-                            <Upload className="w-5 h-5 text-muted-foreground" />
-                          )}
-                        </label>
-                        <Input
-                          id="logo"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setLogo(e.target.files?.[0] || null)}
-                          required
-                          className="hidden"
-                        />
-                      </div>
+                      {signupAccountType === "hr" && (
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="logo"
+                            className="text-center block text-sm font-medium"
+                          >
+                            Logo
+                          </Label>
+                          <label
+                            htmlFor="logo"
+                            className="flex items-center justify-center w-10 h-10 border-2 border-dashed border-input rounded-lg cursor-pointer hover:border-primary transition-colors"
+                          >
+                            {logo ? (
+                              <img
+                                src={URL.createObjectURL(logo)}
+                                alt="Logo preview"
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Upload className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </label>
+                          <Input
+                            id="logo"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              setLogo(e.target.files?.[0] || null)
+                            }
+                            required={signupAccountType === "hr"}
+                            className="hidden"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
@@ -342,6 +397,22 @@ const Auth = () => {
                         required
                       />
                     </div>
+                    {signupAccountType === "client" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="address">Address</Label>
+                        <Input
+                          id="address"
+                          placeholder="City, state or company address"
+                          value={signupData.address}
+                          onChange={(e) =>
+                            setSignupData({
+                              ...signupData,
+                              address: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="signupEmail">Email</Label>
                       <Input
@@ -443,7 +514,8 @@ const Auth = () => {
                       ) : (
                         <ArrowRight className="w-4 h-4 mr-2" />
                       )}
-                      Create Account
+                      Create {signupAccountType === "client" ? "Client" : "HR"}{" "}
+                      Account
                     </Button>
                   </form>
                 </CardContent>
@@ -456,7 +528,6 @@ const Auth = () => {
       <div className="pointer-events-none absolute inset-y-0 left-1/2 z-20 hidden w-40 -translate-x-1/2 lg:block">
         <div className="h-full w-full bg-gradient-to-r from-black/55 via-black/16 to-transparent blur-2xl" />
       </div>
-
     </div>
   );
 };

@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   Clock,
   DollarSign,
   Settings,
   LogOut,
   UserCircle,
-  CheckSquare,
+  FileText,
+  Handshake,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -39,7 +39,7 @@ const DashboardLayout = () => {
       label: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["hr", "employee"],
+      roles: ["hr", "employee", "client"],
     },
     {
       label: "Attendance & Leave",
@@ -54,6 +54,18 @@ const DashboardLayout = () => {
       roles: ["hr"], // HR Only
     },
     {
+      label: "Project Uploads",
+      href: "/client/projects",
+      icon: FileText,
+      roles: ["client"],
+    },
+    {
+      label: "HR Directory",
+      href: "/client/hr-directory",
+      icon: Handshake,
+      roles: ["client"],
+    },
+    {
       label: "Payroll",
       href: "/payroll",
       icon: DollarSign,
@@ -63,7 +75,7 @@ const DashboardLayout = () => {
       label: "Profile",
       href: "/profile",
       icon: UserCircle,
-      roles: ["hr", "employee"],
+      roles: ["hr", "employee", "client"],
     },
     {
       label: "Settings",
@@ -75,7 +87,7 @@ const DashboardLayout = () => {
 
   // 4. Filter items based on Role
   const filteredNavItems = navItems.filter(
-    (item) => user && item.roles.includes(user.role)
+    (item) => user && item.roles.includes(user.role),
   );
 
   const handleLogout = async () => {
@@ -94,11 +106,14 @@ const DashboardLayout = () => {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2 font-bold text-xl text-primary">
             {/* You can put an <img> tag here for user.logo if available */}
-            {/* @ts-ignore - backend payload uses company_name */}
-            <span>{user?.company_name || "Clautzel"}</span>
+            <span>{user?.company_name || user?.companyName || "Clautzel"}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 px-1">
-            {user?.role === "hr" ? "Administrator" : "Employee Portal"}
+            {user?.role === "hr"
+              ? "Administrator"
+              : user?.role === "client"
+                ? "Client Workspace"
+                : "Employee Portal"}
           </p>
         </div>
 
@@ -108,9 +123,10 @@ const DashboardLayout = () => {
               key={item.href}
               to={item.href}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-foreground/70 hover:bg-accent hover:text-foreground"
+                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-foreground/70 hover:bg-accent hover:text-foreground"
                 }`
               }
             >
@@ -123,12 +139,14 @@ const DashboardLayout = () => {
         <div className="p-4 border-t border-sidebar-border bg-sidebar/70">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-              {/* @ts-ignore - backend payload uses name */}
-              {user?.name?.charAt(0)}
+              {(user?.name || user?.firstName || "U").charAt(0)}
             </div>
             <div className="overflow-hidden">
-              {/* @ts-ignore - backend payload uses name */}
-              <p className="text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-sm font-medium truncate">
+                {user?.name ||
+                  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                  "User"}
+              </p>
               <p className="text-xs text-muted-foreground truncate">
                 {user?.email}
               </p>
