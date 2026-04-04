@@ -39,12 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const response = await authAPI.getCurrentUser();
         setUser(response.user);
-        localStorage.setItem("dayflow_user", JSON.stringify(response.user));
+        localStorage.setItem("clautzel_user", JSON.stringify(response.user));
       } catch (error) {
         // No valid session
         setUser(null);
-        localStorage.removeItem("dayflow_user");
-        localStorage.removeItem("dayflow_token");
+        localStorage.removeItem("clautzel_user");
+        localStorage.removeItem("clautzel_token");
       } finally {
         setIsLoading(false);
       }
@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Backend sets cookie; store user locally
       setUser(response.user);
-      localStorage.setItem("dayflow_user", JSON.stringify(response.user));
+      localStorage.setItem("clautzel_user", JSON.stringify(response.user));
 
       toast({
         title: "Success",
@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Backend sets cookie; store user locally
       setUser(response.user);
-      localStorage.setItem("dayflow_user", JSON.stringify(response.user));
+      localStorage.setItem("clautzel_user", JSON.stringify(response.user));
 
       toast({
         title: "Success",
@@ -128,8 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Logout error:", error);
     } finally {
       setUser(null);
-      localStorage.removeItem("dayflow_user");
-      localStorage.removeItem("dayflow_token");
+      localStorage.removeItem("clautzel_user");
+      localStorage.removeItem("clautzel_token");
 
       toast({
         title: "Success",
@@ -140,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem("dayflow_user", JSON.stringify(updatedUser));
+    localStorage.setItem("clautzel_user", JSON.stringify(updatedUser));
   };
 
   return (

@@ -54,7 +54,7 @@ const Index = () => {
             <div className="w-10 h-10 rounded-xl accent-gradient flex items-center justify-center">
               <span className="text-xl font-bold text-primary">D</span>
             </div>
-            <span className="text-xl font-bold">Dayflow</span>
+            <span className="text-xl font-bold">Clautzel</span>
           </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
@@ -102,7 +102,7 @@ const Index = () => {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
-              Try with: admin@dayflow.com / password123
+              Try with: admin@clautzel.com / password123
             </p>
           </div>
 
@@ -169,7 +169,7 @@ const Index = () => {
                 Built for modern HR teams
               </h2>
               <p className="text-lg text-muted-foreground mb-8">
-                Dayflow brings together everything you need to manage your
+                Clautzel brings together everything you need to manage your
                 workforce efficiently, with tools designed for both HR
                 administrators and employees.
               </p>
@@ -234,7 +234,7 @@ const Index = () => {
               Ready to streamline your HR?
             </h2>
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-              Join hundreds of companies using Dayflow to manage their workforce
+              Join hundreds of companies using Clautzel to manage their workforce
               more efficiently.
             </p>
             <Button
@@ -260,10 +260,10 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg accent-gradient flex items-center justify-center">
                 <span className="text-sm font-bold text-primary">D</span>
               </div>
-              <span className="font-semibold">Dayflow HRMS</span>
+              <span className="font-semibold">Clautzel HRMS</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 Dayflow. All rights reserved.
+              © 2024 Clautzel. All rights reserved.
             </p>
           </div>
         </div>

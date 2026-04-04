@@ -55,7 +55,7 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Company Name</Label>
-                  <Input id="companyName" defaultValue="Dayflow Inc." />
+                  <Input id="companyName" defaultValue="Clautzel Inc." />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="industry">Industry</Label>
@@ -63,7 +63,7 @@ const Settings = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="companyEmail">Company Email</Label>
-                  <Input id="companyEmail" type="email" defaultValue="hr@dayflow.com" />
+                  <Input id="companyEmail" type="email" defaultValue="hr@clautzel.com" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>

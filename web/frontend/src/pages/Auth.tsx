@@ -69,7 +69,7 @@ const Auth = () => {
       toast({
         title: "Login failed",
         description:
-          "Invalid email or password. Try admin@dayflow.com / password123",
+          "Invalid email or password. Try admin@clautzel.com / password123",
         variant: "destructive",
       });
     }
@@ -122,7 +122,7 @@ const Auth = () => {
     if (success) {
       toast({
         title: "Account created!",
-        description: "Welcome to Emplor.",
+        description: "Welcome to Clautzel.",
       });
       navigate("/dashboard");
     } else {
@@ -172,7 +172,7 @@ const Auth = () => {
           </div>
 
           <p className="text-sm text-white font-medium">
-            © 2026 Emplor. All rights reserved.
+            © 2026 Clautzel. All rights reserved.
           </p>
         </div>
       </div>
@@ -186,7 +186,7 @@ const Auth = () => {
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold">Emplor</h1>
+              <h1 className="text-2xl font-bold">Clautzel</h1>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -210,7 +210,7 @@ const Auth = () => {
                       <Input
                         id="email"
                         type="text"
-                        placeholder="EMP001 / admin@dayflow.com"
+                        placeholder="EMP001 / admin@clautzel.com"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                       />

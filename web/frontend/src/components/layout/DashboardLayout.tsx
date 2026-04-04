@@ -22,7 +22,7 @@ const DashboardLayout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-sm text-muted-foreground animate-pulse">
-          Loading DayFlow...
+          Loading Clautzel...
         </div>
       </div>
     );
@@ -94,7 +94,7 @@ const DashboardLayout = () => {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2 font-bold text-xl text-primary">
             {/* You can put an <img> tag here for user.logo if available */}
-            <span>{user?.company_name || "DayFlow"}</span>
+            <span>{user?.company_name || "Clautzel"}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 px-1">
             {user?.role === "hr" ? "Administrator" : "Employee Portal"}

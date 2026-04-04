@@ -75,7 +75,7 @@ const Sidebar = () => {
           <Link to="/dashboard" className="flex items-center gap-3" onClick={closeSidebar}>
             <img className='h-10 w-10' src="logo.png" alt="" />
             <div>
-              <h1 className="text-3xl font-bold font text-sidebar-foreground">Emplor</h1>
+              <h1 className="text-3xl font-bold font text-sidebar-foreground">Clautzel</h1>
             </div>
           </Link>
           {/* Close button for mobile */}
