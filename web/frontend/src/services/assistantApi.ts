@@ -1,7 +1,4 @@
-const PATHWAY_API_BASE_URL =
-  import.meta.env.VITE_PATHWAY_API_URL ||
-  import.meta.env.VITE_AI_CHAT_URL ||
-  "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -29,14 +26,15 @@ export const assistantAPI = {
       returnContextDocs?: boolean;
     },
   ) => {
-    const response = await fetch(`${PATHWAY_API_BASE_URL}/v2/answer`, {
+    const response = await fetch(`${API_BASE_URL}/assistant/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         prompt,
         filters: options?.filters || null,
         model: options?.model || null,
-        return_context_docs: options?.returnContextDocs ?? true,
+        returnContextDocs: options?.returnContextDocs ?? true,
       }),
     });
 
@@ -44,7 +42,9 @@ export const assistantAPI = {
   },
 
   getStatistics: async () => {
-    const response = await fetch(`${PATHWAY_API_BASE_URL}/v1/statistics`);
+    const response = await fetch(`${API_BASE_URL}/assistant/statistics`, {
+      credentials: "include",
+    });
     return handleResponse<{ file_count: number; last_modified: number; last_indexed: number }>(response);
   },
 };
