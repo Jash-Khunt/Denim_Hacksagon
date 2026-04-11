@@ -148,10 +148,10 @@ python app.py
 
 # In separate terminals, start additional services:
 # Ticket service (port 8001)
-python app.py --config ticket.yaml
+python app.py --config ticket.yaml --port 8001
 
 # Dashboard service (port 8002)
-python app.py --config dashboard.yaml
+python app.py --config dashboard.yaml --port 8002
 
 # Optional: Start Streamlit UI
 cd streamlit_ui
