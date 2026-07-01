@@ -132,6 +132,20 @@ The frontend will start on `http://localhost:8080`
 
 The project uses multiple Pathway services for AI assistance:
 
+#### Create & activate a Python environment
+
+[ ](https://github.com/Pawan4356/CLAUTZEL#2a-create--activate-a-python-environment)
+
+```bash
+# Using conda
+conda create -n pathway-env python=3.11 -y
+conda activate pathway-env
+
+# Or using venv
+python -m venv .venv
+source .venv/bin/activate
+```
+
 ```bash
 # Install Python dependencies
 pip install -r requirements.txt
