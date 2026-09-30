@@ -32,6 +32,7 @@ export interface AssistantContextDoc {
   text?: string;
   preview_url?: string;
   previewUrl?: string;
+  [key: string]: unknown;
 }
 
 export interface AssistantMessage {

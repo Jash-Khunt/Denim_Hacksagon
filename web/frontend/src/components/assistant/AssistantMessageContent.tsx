@@ -10,6 +10,9 @@ import type {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   Bar,
   BarChart,
@@ -1003,18 +1006,28 @@ type AssistantMessageContentProps = {
   content: string;
 };
 
+const preprocessMath = (text: string) => {
+  return text
+    .replace(/\\\[/g, "$$")
+    .replace(/\\\]/g, "$$")
+    .replace(/\\\(/g, "$")
+    .replace(/\\\)/g, "$");
+};
+
 const AssistantMessageContent = ({ content }: AssistantMessageContentProps) => {
   const { markdown, graph, tickets } = parseGraphConfig(content);
+  const processedMarkdown = preprocessMath(markdown);
 
   return (
     <div className="space-y-4">
       {markdown ? (
-        <div className="space-y-1">
+        <div className="space-y-1 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-2">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={markdownComponents}
           >
-            {markdown}
+            {processedMarkdown}
           </ReactMarkdown>
         </div>
       ) : null}
@@ -1027,5 +1040,5 @@ const AssistantMessageContent = ({ content }: AssistantMessageContentProps) => {
   );
 };
 
-export { normalizePreview };
+export { normalizePreview, parseGraphConfig, AssistantGraph };
 export default AssistantMessageContent;
