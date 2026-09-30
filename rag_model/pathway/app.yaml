@@ -6,7 +6,7 @@ $sources:
   # File System connector, reading data locally.
   - !pw.io.fs.read 
     path: data
-    # path: client
+    path: client
     # path: date
     format: binary
     with_metadata: true

@@ -195,3 +195,4 @@ question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
     ANSWER:
 
 terminate_on_error: true
+port: 8001

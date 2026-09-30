@@ -871,7 +871,7 @@ const AssistantWorkspace = ({
                         ) : null}
 
                         <div
-                          className={`overflow-hidden rounded-3xl px-4 py-3 shadow-sm ${isUser
+                          className={`overflow-x-auto rounded-3xl px-4 py-3 shadow-sm ${isUser
                               ? isFullscreen
                                 ? "max-w-[min(32rem,100%)]"
                                 : "max-w-[min(38rem,100%)]"
@@ -1180,7 +1180,7 @@ const AssistantWorkspace = ({
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col p-4">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
                 <Button
                   onClick={createThread}
                   className="mb-4 w-full justify-start rounded-2xl bg-primary/10 px-4 text-primary hover:bg-primary/15"
@@ -1190,7 +1190,7 @@ const AssistantWorkspace = ({
                   New chat
                 </Button>
 
-                <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                   {threads.length === 0 ? (
                     <div className="flex flex-1 items-center justify-center">
                       <div className="w-full rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center">
