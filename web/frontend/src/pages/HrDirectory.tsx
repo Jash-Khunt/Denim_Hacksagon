@@ -95,6 +95,11 @@ const HrDirectory = () => {
     hrId: string,
     mode: "connect" | "chat" | "meeting"
   ) => {
+    if (selectedHr?.connection_status === "connected" && mode !== "connect") {
+      setSelectedHr(null);
+      navigate(`/${mode === "chat" ? "chat" : "meetings"}?partner=${hrId}`);
+      return;
+    }
     try {
       setIsSubmittingMode(mode);
       await clientAPI.connectToHr(hrId, { mode });

@@ -28,8 +28,12 @@ $sources:
 #######################################
 
 $llm:
-  !pw.xpacks.llm.llms.LiteLLMChat # model: "huggingface/meta-llama/Llama-3.1-8B-Instruct"
-  model: "huggingface/openai/gpt-oss-120b"
+  !pw.xpacks.llm.llms.LiteLLMChat
+  model: "gemini/gemini-2.5-flash"
+  # model: "huggingface/meta-llama/Llama-3.1-8B-Instruct"
+  # model: "huggingface/openai/gpt-oss-120b"
+  # model: "gemini/gemini-2.0-flash"
+  # model: "gemini/gemini-3.8-flash"
   # model: "huggingface/deepseek-ai/DeepSeek-V3"
   # model: "ollama/mistral:latest"
   retry_strategy: !pw.udfs.ExponentialBackoffRetryStrategy
@@ -194,5 +198,5 @@ question_answerer: !pw.xpacks.llm.question_answering.BaseRAGQuestionAnswerer
 
     ANSWER:
 
-terminate_on_error: true
+terminate_on_error: false
 port: 8001
