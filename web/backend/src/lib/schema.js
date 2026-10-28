@@ -106,6 +106,42 @@ const workflowSchemaSql = `
 
   CREATE INDEX IF NOT EXISTS idx_assistant_questions_owner
     ON assistant_questions (user_role, user_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS hr_client_messages (
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES client(client_id) ON DELETE CASCADE,
+    hr_id UUID NOT NULL REFERENCES hr(hr_id) ON DELETE CASCADE,
+    sender_role VARCHAR(10) NOT NULL CHECK (sender_role IN ('hr', 'client')),
+    sender_id UUID NOT NULL,
+    body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 5000),
+    read_at TIMESTAMP WITHOUT TIME ZONE,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_hr_client_messages_pair
+    ON hr_client_messages (client_id, hr_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS hr_client_meetings (
+    meeting_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES client(client_id) ON DELETE CASCADE,
+    hr_id UUID NOT NULL REFERENCES hr(hr_id) ON DELETE CASCADE,
+    created_by_role VARCHAR(10) NOT NULL CHECK (created_by_role IN ('hr', 'client')),
+    created_by_id UUID NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    starts_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    room_id UUID NOT NULL DEFAULT gen_random_uuid(),
+    location TEXT,
+    status VARCHAR(15) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_hr_client_meetings_pair
+    ON hr_client_meetings (client_id, hr_id, starts_at);
+  ALTER TABLE hr_client_meetings ADD COLUMN IF NOT EXISTS room_id UUID;
+  UPDATE hr_client_meetings SET room_id = gen_random_uuid() WHERE room_id IS NULL;
+  ALTER TABLE hr_client_meetings ALTER COLUMN room_id SET DEFAULT gen_random_uuid();
+  ALTER TABLE hr_client_meetings ALTER COLUMN room_id SET NOT NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_hr_client_meetings_room_id
+    ON hr_client_meetings (room_id);
 `;
 
 export const ensureWorkflowSchema = async () => {

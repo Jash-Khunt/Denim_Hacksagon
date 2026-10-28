@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate, Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Navigate, Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ const ASSISTANT_FULLSCREEN_EVENT = "assistant-fullscreen-change";
 const DashboardLayout = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAssistantFullscreen, setIsAssistantFullscreen] = useState(
     () => document.body.dataset.assistantFullscreen === "true",
   );
@@ -62,7 +63,8 @@ const DashboardLayout = () => {
 
   // 2. Handle Unauthenticated
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    const returnTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/auth?returnTo=${encodeURIComponent(returnTo)}`} replace />;
   }
 
   // 3. Define Navigation Items

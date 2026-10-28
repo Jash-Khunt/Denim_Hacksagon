@@ -19,6 +19,7 @@ import jiraRoutes from "./routes/jira.route.js";
 import connectionRoutes from "./routes/connection.route.js";
 import taskRoutes from "./routes/task.route.js";
 import assistantRoutes from "./routes/assistant.route.js";
+import communicationRoutes from "./routes/communication.route.js";
 import { initializeTaskScheduler } from "./lib/task-scheduler.js";
 import cors from "cors";
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/v1/payroll", payrollRoutes);
 app.use("/api/v1/jira", jiraRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/assistant", assistantRoutes);
+app.use("/api/v1/communication", communicationRoutes);
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/assistant-documents", express.static(assistantDocumentsDir));

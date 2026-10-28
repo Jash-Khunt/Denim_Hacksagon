@@ -20,6 +20,8 @@ import HrConnections from "./pages/HrConnections";
 import TaskBoard from "./pages/TaskBoard";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
+import Communication from "./pages/Communication";
+import MeetingRoom from "./pages/MeetingRoom";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,9 @@ const App = () => (
               <Route path="/client/hr-directory" element={<HrDirectory />} />
               <Route path="/hr/connections" element={<HrConnections />} />
               <Route path="/tickets" element={<TaskBoard />} />
+              <Route path="/chat" element={<Communication />} />
+              <Route path="/meetings" element={<Communication />} />
+              <Route path="/meetings/:meetingId" element={<MeetingRoom />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

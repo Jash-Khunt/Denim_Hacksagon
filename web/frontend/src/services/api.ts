@@ -168,6 +168,68 @@ export const connectionAPI = {
   },
 };
 
+export interface CommunicationPartner {
+  client_id?: string;
+  hr_id?: string;
+  name: string;
+  company_name?: string;
+  profile_picture?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  unread_count?: number;
+}
+export interface ChatMessage {
+  message_id: string;
+  sender_role: "hr" | "client";
+  sender_id: string;
+  body: string;
+  read_at?: string | null;
+  created_at: string;
+}
+export interface Meeting {
+  meeting_id: string;
+  client_id: string;
+  hr_id: string;
+  hr_name?: string;
+  client_name?: string;
+  title: string;
+  starts_at: string;
+  location?: string | null;
+  status: "scheduled" | "cancelled";
+  room_id: string;
+}
+export interface MeetingJoinToken {
+  token: string;
+  app_id: string;
+  room_id: string;
+  room_name: string;
+  participant_names: string[];
+  participant_name: string;
+  title: string;
+  starts_at: string;
+}
+const communicationRequest = async <T>(path: string, method = "GET", data?: object): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}/communication${path}`, {
+    method,
+    credentials: "include",
+    ...(data ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) } : {}),
+  });
+  return handleResponse<T>(response);
+};
+export const communicationAPI = {
+  getPartners: () => communicationRequest<{ partners: CommunicationPartner[] }>("/partners"),
+  getMessages: (clientId: string, hrId: string, before?: ChatMessage) => {
+    const cursor = before ? `?before=${encodeURIComponent(`${before.created_at}|${before.message_id}`)}` : "";
+    return communicationRequest<{ messages: ChatMessage[]; has_more: boolean }>(`/${clientId}/${hrId}/messages${cursor}`);
+  },
+  sendMessage: (clientId: string, hrId: string, body: string) => communicationRequest<{ message: ChatMessage }>(`/${clientId}/${hrId}/messages`, "POST", { body }),
+  getMyMeetings: () => communicationRequest<{ meetings: Meeting[] }>("/meetings"),
+  getMeetings: (clientId: string, hrId: string) => communicationRequest<{ meetings: Meeting[] }>(`/${clientId}/${hrId}/meetings`),
+  createMeeting: (clientId: string, hrId: string, data: { title: string; starts_at: string; location?: string }) => communicationRequest<{ meeting: Meeting }>(`/${clientId}/${hrId}/meetings`, "POST", data),
+  updateMeeting: (meetingId: string, data: Partial<Pick<Meeting, "title" | "starts_at" | "location" | "status">>) => communicationRequest<{ meeting: Meeting }>(`/meetings/${meetingId}`, "PATCH", data),
+  getMeetingJoinToken: (meetingId: string) => communicationRequest<MeetingJoinToken>(`/meetings/${meetingId}/join-token`),
+};
+
 export const taskAPI = {
   getTasks: async (status?: string) => {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";

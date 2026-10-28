@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1"
 const statusOrder = ["pending", "connected", "declined"] as const;
 
 const HrConnections = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [connections, setConnections] = useState<ClientConnection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -230,7 +232,12 @@ const HrConnections = () => {
                           </div>
                         )}
 
-                        {status === "pending" ? (
+                        {status === "connected" ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <Button variant="outline" className="rounded-xl" onClick={() => navigate(`/chat?partner=${connection.client_id}`)}>Chat</Button>
+                            <Button variant="outline" className="rounded-xl" onClick={() => navigate(`/meetings?partner=${connection.client_id}`)}>Meeting</Button>
+                          </div>
+                        ) : status === "pending" ? (
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Button
                               className="rounded-xl"
