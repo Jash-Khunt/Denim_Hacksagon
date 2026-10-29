@@ -12,6 +12,7 @@ import {
   LogOut,
   UserCircle,
   FileText,
+  FolderOpen,
   Handshake,
   KanbanSquare,
 } from "lucide-react";
@@ -97,6 +98,12 @@ const DashboardLayout = () => {
       label: "Client Requests",
       href: "/hr/connections",
       icon: Handshake,
+      roles: ["hr"],
+    },
+    {
+      label: "Available Files",
+      href: "/hr/files",
+      icon: FolderOpen,
       roles: ["hr"],
     },
     {

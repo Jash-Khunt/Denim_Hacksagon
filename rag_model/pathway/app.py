@@ -27,7 +27,8 @@ DEFAULT_CONFIG_NAME = "app.yaml"
 
 class App(BaseModel):
     question_answerer: InstanceOf[SummaryQuestionAnswerer]
-    host: str = "0.0.0.0"
+    # Keep the document API private to the local backend by default.
+    host: str = "127.0.0.1"
     port: int = 8000
 
     with_cache: bool | None = None  # deprecated
@@ -36,6 +37,8 @@ class App(BaseModel):
     terminate_on_error: bool = False
 
     def run(self) -> None:
+        if self.host not in {"127.0.0.1", "localhost"}:
+            raise ValueError("Pathway must bind to localhost; expose it only through the authenticated backend")
         server = QASummaryRestServer(  # noqa: F841
             self.host, self.port, self.question_answerer
         )

@@ -4,7 +4,7 @@
 
 $sources:
   - !pw.io.fs.read
-    path: client
+    path: ../../web/backend/uploads/clients
     format: binary
     with_metadata: true
 

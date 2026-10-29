@@ -142,6 +142,18 @@ const workflowSchemaSql = `
   ALTER TABLE hr_client_meetings ALTER COLUMN room_id SET NOT NULL;
   CREATE UNIQUE INDEX IF NOT EXISTS idx_hr_client_meetings_room_id
     ON hr_client_meetings (room_id);
+
+  CREATE TABLE IF NOT EXISTS hr_company_files (
+    file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hr_id UUID NOT NULL REFERENCES hr(hr_id) ON DELETE CASCADE,
+    original_name VARCHAR(255) NOT NULL,
+    stored_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT NOT NULL CHECK (file_size >= 0),
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_hr_company_files_owner
+    ON hr_company_files (hr_id, created_at DESC);
 `;
 
 export const ensureWorkflowSchema = async () => {

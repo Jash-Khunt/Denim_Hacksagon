@@ -3,11 +3,8 @@
 ################
 
 $sources:
-  # File System connector, reading data locally.
-  - !pw.io.fs.read 
-    # path: data
-    path: client
-    # path: date
+  - !pw.io.fs.read
+    path: ../../web/backend/uploads/clients
     format: binary
     with_metadata: true
 

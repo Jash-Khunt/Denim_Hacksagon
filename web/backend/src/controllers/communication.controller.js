@@ -138,6 +138,11 @@ export const getMyMeetings = async (req, res) => {
        JOIN hr h USING (hr_id)
        JOIN client c USING (client_id)
        WHERE ${ownerColumn} = $1
+         AND EXISTS (
+           SELECT 1 FROM client_hr_connections conn
+           WHERE conn.client_id = m.client_id AND conn.hr_id = m.hr_id
+             AND conn.status = 'connected'
+         )
        ORDER BY m.starts_at ASC`,
       [me.id],
     );

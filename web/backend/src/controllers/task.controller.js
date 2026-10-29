@@ -9,7 +9,11 @@ import { sendRemindersForUpdatedTask } from "../lib/task-scheduler.js";
 const getRoleScope = (user) => {
   if (user.role === "hr") {
     return {
-      clause: "t.hr_id = $1",
+      clause: `t.hr_id = $1 AND EXISTS (
+        SELECT 1 FROM client_hr_connections conn
+        WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+          AND conn.status = 'connected'
+      )`,
       params: [user.hr_id],
     };
   }
@@ -22,7 +26,11 @@ const getRoleScope = (user) => {
   }
 
   return {
-    clause: "t.client_id = $1",
+    clause: `t.client_id = $1 AND EXISTS (
+      SELECT 1 FROM client_hr_connections conn
+      WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+        AND conn.status = 'connected'
+    )`,
     params: [user.client_id],
   };
 };
@@ -30,7 +38,11 @@ const getRoleScope = (user) => {
 const getScopedTaskCondition = (user, startingIndex = 1) => {
   if (user.role === "hr") {
     return {
-      clause: `t.hr_id = $${startingIndex}`,
+      clause: `t.hr_id = $${startingIndex} AND EXISTS (
+        SELECT 1 FROM client_hr_connections conn
+        WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+          AND conn.status = 'connected'
+      )`,
       params: [user.hr_id],
     };
   }
@@ -43,7 +55,11 @@ const getScopedTaskCondition = (user, startingIndex = 1) => {
   }
 
   return {
-    clause: `t.client_id = $${startingIndex}`,
+    clause: `t.client_id = $${startingIndex} AND EXISTS (
+      SELECT 1 FROM client_hr_connections conn
+      WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+        AND conn.status = 'connected'
+    )`,
     params: [user.client_id],
   };
 };
@@ -340,6 +356,13 @@ export const updateTask = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    const connection = await pool.query(
+      `SELECT 1 FROM client_hr_connections
+       WHERE client_id = $1 AND hr_id = $2 AND status = 'connected'`,
+      [existingTask.client_id, req.user.hr_id],
+    );
+    if (!connection.rowCount) return res.status(404).json({ message: "Task not found" });
+
     let nextAssigneeId = assignee_emp_id;
     if (typeof nextAssigneeId === "string" && nextAssigneeId.trim() === "") {
       nextAssigneeId = null;
@@ -480,6 +503,22 @@ export const importTasksFromBot = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    if (req.user.role === "hr") {
+      const connection = await pool.query(
+        `SELECT 1 FROM client_hr_connections
+         WHERE client_id = $1 AND hr_id = $2 AND status = 'connected'`,
+        [upload.client_id, req.user.hr_id],
+      );
+      if (!connection.rowCount) return res.status(404).json({ message: "Upload not found" });
+    }
+
+    const activeConnection = await pool.query(
+      `SELECT 1 FROM client_hr_connections
+       WHERE client_id = $1 AND hr_id = $2 AND status = 'connected'`,
+      [upload.client_id, upload.hr_id],
+    );
+    if (!activeConnection.rowCount) return res.status(404).json({ message: "Upload not found" });
+
     if (!upload.hr_id) {
       return res.status(400).json({
         message:
@@ -564,6 +603,9 @@ export const sendDueSoonTaskReminders = async (req, res) => {
       FROM project_tasks t
       JOIN employee e
         ON e.emp_id = t.assignee_emp_id
+      JOIN client_hr_connections conn
+        ON conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+        AND conn.status = 'connected'
       WHERE t.hr_id = $1
         AND t.assignee_emp_id IS NOT NULL
         AND t.status <> 'done'

@@ -3,18 +3,22 @@
 ################
 
 $sources:
-  # File System connector, reading data folder
-  - !pw.io.fs.read 
-    path: data
+  # New client PDFs are stored under a client UUID directory. The backend
+  # always sends a server-derived Pathway metadata filter for this path.
+  - !pw.io.fs.read
+    path: ../../web/backend/uploads/clients
     format: binary
     with_metadata: true
 
-  # File System connector, reading client folder
-  - !pw.io.fs.read 
-    path: client
+  # HR-owned company documents are available only when the authenticated
+  # backend derives a matching HR and file ID filter for the current account.
+  - !pw.io.fs.read
+    path: ../../web/backend/uploads/hr-companies
     format: binary
     with_metadata: true
 
+  # Documents without a verifiable database owner are intentionally not indexed.
+  # Google Drive documents can be added after equivalent company ownership metadata exists.
   # Google Drive connector
   # - !pw.io.gdrive.read
   #   object_id: $DIGITAL_DRIVE_ID

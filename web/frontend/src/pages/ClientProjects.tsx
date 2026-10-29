@@ -434,7 +434,7 @@ const ClientProjects = () => {
                       </div>
                     ) : (
                       <a
-                        href={`${API_ROOT}/${project.file_path}`}
+                        href={`${API_ROOT}/api/v1/project-files/${project.upload_id}`}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"

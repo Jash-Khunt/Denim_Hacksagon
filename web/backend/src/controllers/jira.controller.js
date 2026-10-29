@@ -38,7 +38,9 @@ const getChatbotSyncSecret = () => process.env.CHATBOT_SYNC_SECRET?.trim() || ""
 const ensureChatbotSyncAuthorized = (req) => {
   const expectedSecret = getChatbotSyncSecret();
   if (!expectedSecret) {
-    return;
+    const error = new Error("Chatbot sync is not configured on the server");
+    error.statusCode = 503;
+    throw error;
   }
 
   const incomingSecret = req.get(CHATBOT_SYNC_SECRET_HEADER) || "";
@@ -523,32 +525,6 @@ const mapIssue = (issue, jiraDomain) => ({
   updatedAt: issue.fields?.updated || null,
 });
 
-const filterIssuesForEmployee = (issues, user) => {
-  const normalizedEmail = (user.email || "").toLowerCase();
-  const normalizedName = (user.name || "").toLowerCase();
-
-  return issues.filter((issue) => {
-    const assignee = issue.fields?.assignee;
-
-    if (!assignee) {
-      return false;
-    }
-
-    const candidateValues = [
-      assignee.emailAddress,
-      assignee.displayName,
-      assignee.accountId,
-    ]
-      .filter(Boolean)
-      .map((value) => value.toLowerCase());
-
-    return (
-      (normalizedEmail && candidateValues.includes(normalizedEmail)) ||
-      (normalizedName && candidateValues.includes(normalizedName))
-    );
-  });
-};
-
 const fetchIssues = async ({ startAt, maxResults, status, user }) => {
   const config = getJiraConfig();
 
@@ -583,14 +559,29 @@ const fetchIssues = async ({ startAt, maxResults, status, user }) => {
     }
   );
 
+  const taskFilter = user.role === "hr"
+    ? `SELECT t.task_key FROM project_tasks t WHERE t.hr_id = $1
+       AND EXISTS (SELECT 1 FROM client_hr_connections conn
+         WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id AND conn.status = 'connected')`
+    : user.role === "employee"
+      ? `SELECT task_key FROM project_tasks WHERE assignee_emp_id = $1`
+      : `SELECT t.task_key FROM project_tasks t WHERE t.client_id = $1
+         AND EXISTS (SELECT 1 FROM client_hr_connections conn
+           WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id AND conn.status = 'connected')`;
+  const userId = user.hr_id || user.emp_id || user.client_id;
+  const taskResult = await pool.query(taskFilter, [userId]);
+  const taskKeys = taskResult.rows.map((task) => task.task_key).filter(Boolean);
   const baseIssues = response.data.issues || [];
-  const filteredIssues =
-    user.role === "employee" ? filterIssuesForEmployee(baseIssues, user) : baseIssues;
+  const filteredIssues = baseIssues.filter((issue) => {
+    if (!taskKeys.length) return false;
+    const description = JSON.stringify(issue.fields?.description || "");
+    return taskKeys.some((taskKey) => description.includes(`Internal Task: ${taskKey}`));
+  });
 
   return {
     config,
     issues: filteredIssues,
-    total: user.role === "employee" ? filteredIssues.length : response.data.total || filteredIssues.length,
+    total: filteredIssues.length,
   };
 };
 
@@ -709,7 +700,6 @@ export const getHrProjectUploads = async (req, res) => {
         u.project_name,
         u.overview,
         u.original_name,
-        u.file_path,
         u.upload_source,
         u.processing_status,
         u.confidence_flag,
@@ -730,6 +720,11 @@ export const getHrProjectUploads = async (req, res) => {
         ON task_summary.upload_id = u.upload_id
       WHERE u.hr_id = $1
         AND u.upload_source = 'local'
+        AND EXISTS (
+          SELECT 1 FROM client_hr_connections conn
+          WHERE conn.client_id = u.client_id AND conn.hr_id = u.hr_id
+            AND conn.status = 'connected'
+        )
       ORDER BY u.created_at DESC`,
       [req.user.hr_id],
     );
@@ -777,6 +772,12 @@ export const createJiraTicketsForHr = async (req, res) => {
     }
 
     const upload = uploadResult.rows[0];
+    const connection = await pool.query(
+      `SELECT 1 FROM client_hr_connections
+       WHERE client_id = $1 AND hr_id = $2 AND status = 'connected'`,
+      [upload.client_id, upload.hr_id],
+    );
+    if (!connection.rowCount) return res.status(404).json({ message: "Project upload not found" });
     const parsedTasks = normalizeTaskInput({ tasks, rawResponse: raw_response });
     if (!parsedTasks.length) {
       return res.status(400).json({ message: "No tasks were provided for Jira creation" });

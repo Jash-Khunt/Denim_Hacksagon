@@ -216,3 +216,9 @@ marimo/_lsp/
 __marimo__/
 
 node_modules
+
+# Local documents and uploaded media
+*.pdf
+*.PDF
+**/*[Ll]ogo*
+web/backend/uploads/
