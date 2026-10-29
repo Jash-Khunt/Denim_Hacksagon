@@ -10,6 +10,20 @@ The RAG assistant is powered from local document assets in `rag_model/pathway/cl
 
 The project is built for fast development and clean user experiences while supporting real-time HR operations, reporting, and conversational AI assistance.
 
+## Recent Updates
+
+- **HR file workspace:** HR users can browse files shared by connected clients, search and filter those files, and upload private company documents. Company files support PDF, Office, text, CSV, and image formats (up to 10 files per request and 25 MB per file). HR company files are private to the owning HR account and can be downloaded; PDFs can also be previewed.
+- **Protected file access:** Project uploads and assistant source documents are served through authenticated, role-checked routes. HR access to client project files depends on an active client connection. Only profile images are served through the public uploads route.
+- **Assistant document handling:** Assistant threads and questions are stored per user, and uploaded source documents are handled through the protected file flow. RAG configuration includes separate main, ticket, and dashboard services.
+- **Task and Jira access:** Task lists and Jira issues are scoped to the signed-in user's role and associated records. HR and client views of task data require an active connection; chatbot-to-Jira synchronization requires its configured shared secret.
+- **Database workflow support:** Startup initializes workflow tables for tasks, task comments, assistant threads and questions, HR/client messages and meetings, and HR company files. Task reminders continue to run through the backend scheduler.
+- **Client-facing workspace:** Client project views now link to protected project files, and the HR navigation includes the file workspace at `/hr/files`.
+- **Authorization coverage:** The backend includes role and company-file access tests. Run them with `cd web/backend && npm run test:rbac`.
+
+## Local and Generated Files
+
+The root `.gitignore` excludes PDF files, paths containing `logo` (case-insensitive), and `web/backend/uploads/`. These rules keep newly untracked documents, logo assets, and uploaded files out of future commits. Files already tracked by Git remain tracked until removed from the index; use `git rm --cached <path>` for any existing file that should no longer be versioned. Since the logo rule is broad, add a negated exception in `.gitignore` for any logo asset that the app needs in a fresh clone.
+
 ## Key Features
 
 - **JIRA Integration & Task Management**
@@ -94,6 +108,8 @@ The project is built for fast development and clean user experiences while suppo
   - `streamlit_ui/` — Streamlit web interface for RAG
 - `requirements.txt` — Python dependencies for the AI/model environment
 - `docs/images/` — Screenshots and documentation images
+
+HR company uploads are stored locally under `web/backend/uploads/hr-companies/` and project uploads under the backend uploads directory. Upload contents are runtime data and should be provisioned or uploaded per environment rather than committed to the repository.
 
 ## Getting Started
 
