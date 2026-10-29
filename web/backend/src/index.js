@@ -20,6 +20,8 @@ import connectionRoutes from "./routes/connection.route.js";
 import taskRoutes from "./routes/task.route.js";
 import assistantRoutes from "./routes/assistant.route.js";
 import communicationRoutes from "./routes/communication.route.js";
+import projectFileRoutes from "./routes/project-file.route.js";
+import companyFileRoutes from "./routes/company-file.route.js";
 import { initializeTaskScheduler } from "./lib/task-scheduler.js";
 import cors from "cors";
 const app = express();
@@ -39,14 +41,6 @@ app.use(
 
 const PORT = process.env.PORT || 3001;
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const assistantDocumentsDir = path.resolve(
-  currentDir,
-  "../../../rag_model/pathway/client",
-);
-const assistantDataDir = path.resolve(
-  currentDir,
-  "../../../rag_model/pathway/data",
-);
 
 app.use("/api/v1/auth/users", authRoutes);
 app.use("/api/v1/hr", employeeRoutes);
@@ -60,12 +54,22 @@ app.use("/api/v1/jira", jiraRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/assistant", assistantRoutes);
 app.use("/api/v1/communication", communicationRoutes);
+app.use("/api/v1/project-files", projectFileRoutes);
+app.use("/api/v1/company-files", companyFileRoutes);
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-app.use("/assistant-documents", express.static(assistantDocumentsDir));
-app.use("/assistant-data", express.static(assistantDataDir));
+// Only profile images are intentionally public. Project PDFs and assistant
+// source documents must be served through the authenticated project-file API.
+app.get("/uploads/:filename", (req, res, next) => {
+  const filename = req.params.filename;
+  if (!/^[a-zA-Z0-9_-]+\.(?:png|jpe?g|gif|webp)$/i.test(filename)) {
+    return res.sendStatus(404);
+  }
+  return res.sendFile(path.join(process.cwd(), "uploads", filename), (error) => {
+    if (error && !res.headersSent) next(error);
+  });
+});
 
-const startServer = async () => {
+export const startServer = async () => {
   await testConnection();
   await ensureWorkflowSchema();
   initializeTaskScheduler();
@@ -75,7 +79,11 @@ const startServer = async () => {
   });
 };
 
-startServer().catch((error) => {
-  console.error("Failed to start server:", error.message);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startServer().catch((error) => {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
+  });
+}
+
+export { app };

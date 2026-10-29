@@ -8,6 +8,7 @@ import {
   ClientConnection,
   ProjectTask,
   ProjectTaskComment,
+  HrCompanyFile,
 } from "@/types";
 
 const API_BASE_URL =
@@ -375,6 +376,25 @@ export const jiraAPI = {
         error: string | string[];
       }>;
     }>(response);
+  },
+};
+
+export const companyFileAPI = {
+  list: async () => {
+    const response = await fetch(`${API_BASE_URL}/company-files`, {
+      method: "GET",
+      credentials: "include",
+    });
+    return handleResponse<{ files: HrCompanyFile[] }>(response);
+  },
+
+  upload: async (formData: FormData) => {
+    const response = await fetch(`${API_BASE_URL}/company-files`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    return handleResponse<{ files: HrCompanyFile[] }>(response);
   },
 };
 

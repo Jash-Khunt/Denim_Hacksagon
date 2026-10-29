@@ -27,6 +27,9 @@ const sendRemindersForType = async (reminderType) => {
       FROM project_tasks t
       JOIN employee e
         ON e.emp_id = t.assignee_emp_id
+      JOIN client_hr_connections conn
+        ON conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+        AND conn.status = 'connected'
       WHERE t.assignee_emp_id IS NOT NULL
         AND t.status <> 'done'
         AND ${datePredicate}

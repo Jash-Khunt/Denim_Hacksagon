@@ -17,8 +17,10 @@ export const getHrConnections = async (req, res) => {
         c.company_name,
         c.profile_picture,
         c.address,
-        COALESCE(upload_summary.upload_count, 0)::INT AS upload_count,
-        COALESCE(task_summary.task_count, 0)::INT AS task_count
+        CASE WHEN conn.status = 'connected'
+          THEN COALESCE(upload_summary.upload_count, 0)::INT ELSE 0 END AS upload_count,
+        CASE WHEN conn.status = 'connected'
+          THEN COALESCE(task_summary.task_count, 0)::INT ELSE 0 END AS task_count
       FROM client_hr_connections conn
       JOIN client c
         ON c.client_id = conn.client_id

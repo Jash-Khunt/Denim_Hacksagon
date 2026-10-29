@@ -59,6 +59,14 @@ export const updateProfile = async (req, res) => {
     role === "hr" && req.body.target_id ? req.body.target_id : requesterId;
 
   try {
+    if (role === "hr" && req.body.target_id) {
+      const employee = await pool.query(
+        `SELECT 1 FROM employee WHERE emp_id = $1 AND hr_id = $2`,
+        [targetId, requesterId],
+      );
+      if (!employee.rowCount) return res.status(404).json({ message: "Profile not found" });
+    }
+
     if (role === "client") {
       const { name, phone, address, company_name } = req.body;
 
@@ -302,6 +310,18 @@ export const getProfile = async (req, res) => {
     req.params.id || req.user.hr_id || req.user.emp_id || req.user.client_id;
 
   try {
+    const ownId = req.user.hr_id || req.user.emp_id || req.user.client_id;
+    if (req.user.role !== "hr" && id !== ownId) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+    if (req.user.role === "hr" && id !== ownId) {
+      const employee = await pool.query(
+        `SELECT 1 FROM employee WHERE emp_id = $1 AND hr_id = $2`,
+        [id, req.user.hr_id],
+      );
+      if (!employee.rowCount) return res.status(404).json({ message: "Profile not found" });
+    }
+
     let result = await pool.query(
       `SELECT
         e.name,

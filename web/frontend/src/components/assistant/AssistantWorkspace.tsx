@@ -160,6 +160,9 @@ const dedupeContextDocs = (docs: AssistantContextDoc[]) => {
 };
 
 const getContextDocLabel = (doc: AssistantContextDoc) => {
+  const displayName = readString(doc.name, doc.title, doc.original_name);
+  if (displayName) return displayName;
+
   const normalizedPath = doc.path.replace(/\\/g, "/");
   return normalizedPath.split("/").filter(Boolean).at(-1) || doc.path;
 };
@@ -935,9 +938,10 @@ const AssistantWorkspace = ({
                                       variant="outline"
                                       size="sm"
                                       title={doc.path}
-                                      onClick={() =>
-                                        setSelectedPreviewPath(doc.path)
-                                      }
+                                      onClick={() => {
+                                        setSelectedPreviewPath(doc.path);
+                                        if (!isFullscreen) setIsFullscreen(true);
+                                      }}
                                       className={cn(
                                         "h-auto max-w-full rounded-full px-3 py-1 text-[11px]",
                                         isSelected

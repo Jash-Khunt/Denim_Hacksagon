@@ -15,6 +15,11 @@ PATHWAY_PORT = os.environ.get("PATHWAY_PORT", 8000)
 
 st.set_page_config(page_title="Pathway RAG App", page_icon="favicon.ico")
 
+# This standalone demo has no Clautzel session or company authorization
+# context, so it must not query the shared document index directly.
+st.warning("Document search is available through the authenticated Clautzel assistant.")
+st.stop()
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",

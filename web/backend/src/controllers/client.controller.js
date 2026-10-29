@@ -1,4 +1,7 @@
 import { pool } from "../lib/db.js";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 
 const allowedModes = new Set(["connect", "chat", "meeting"]);
 
@@ -182,13 +185,40 @@ export const uploadProjectPdf = async (req, res) => {
       });
     }
 
+    const uploadId = randomUUID();
+    const scopedDirectory = path.join(
+      process.cwd(),
+      "uploads",
+      "clients",
+      clientId,
+      "hrs",
+      selectedHrId,
+      uploadId,
+    );
+    fs.mkdirSync(scopedDirectory, { recursive: true });
+    const scopedPath = path.join(scopedDirectory, file.filename);
+    fs.renameSync(file.path, scopedPath);
+    file.path = scopedPath;
+
     const db = await pool.connect();
 
     try {
       await db.query("BEGIN");
 
+      const activeConnection = await db.query(
+        `SELECT 1 FROM client_hr_connections
+         WHERE client_id = $1 AND hr_id = $2 AND status = 'connected'
+         FOR SHARE`,
+        [clientId, selectedHrId],
+      );
+      if (!activeConnection.rowCount) {
+        await db.query("ROLLBACK");
+        return res.status(403).json({ message: "The selected HR connection is no longer active" });
+      }
+
       const result = await db.query(
         `INSERT INTO client_project_uploads (
+          upload_id,
           client_id,
           hr_id,
           original_name,
@@ -197,9 +227,10 @@ export const uploadProjectPdf = async (req, res) => {
           project_name,
           overview
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *`,
         [
+          uploadId,
           clientId,
           selectedHrId,
           file.originalname,
@@ -237,7 +268,6 @@ export const getMyProjectUploads = async (req, res) => {
         u.project_name,
         u.overview,
         u.original_name,
-        u.file_path,
         u.upload_source,
         u.processing_status,
         u.confidence_flag,
@@ -266,5 +296,51 @@ export const getMyProjectUploads = async (req, res) => {
   } catch (error) {
     console.error("Error in getMyProjectUploads:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getProjectFile = async (req, res) => {
+  const { uploadId } = req.params;
+  const user = req.user;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uploadId)) {
+    return res.status(404).json({ message: "Project file not found" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT u.upload_id, u.file_path
+       FROM client_project_uploads u
+       WHERE u.upload_id = $1
+         AND (
+           ($2 = 'client' AND u.client_id = $3)
+           OR ($2 = 'hr' AND u.hr_id = $4 AND EXISTS (
+             SELECT 1 FROM client_hr_connections conn
+             WHERE conn.client_id = u.client_id AND conn.hr_id = u.hr_id
+               AND conn.status = 'connected'
+           ))
+           OR ($2 = 'employee' AND EXISTS (
+             SELECT 1 FROM project_tasks t
+             WHERE t.upload_id = u.upload_id AND t.assignee_emp_id = $5
+           ))
+         )`,
+      [uploadId, user.role, user.client_id || null, user.hr_id || null, user.emp_id || null],
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ message: "Project file not found" });
+    }
+
+    const uploadsRoot = path.resolve(process.cwd(), "uploads");
+    const filePath = path.resolve(result.rows[0].file_path);
+    const relativePath = path.relative(uploadsRoot, filePath);
+    if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath) || !fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Project file not found" });
+    }
+    res.type("application/pdf");
+    res.setHeader("Content-Disposition", "inline");
+    return res.sendFile(filePath, (error) => {
+      if (error && !res.headersSent) res.status(error.statusCode || 404).json({ message: "Project file not found" });
+    });
+  } catch (error) {
+    console.error("Error in getProjectFile:", error.message);
+    return res.status(500).json({ message: "Could not load project file" });
   }
 };

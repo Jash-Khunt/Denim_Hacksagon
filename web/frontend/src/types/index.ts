@@ -148,7 +148,6 @@ export interface ClientProjectUpload {
   project_name?: string | null;
   overview?: string | null;
   original_name: string;
-  file_path: string;
   upload_source?: "local" | "assistant" | string;
   processing_status: string;
   confidence_flag?: string | null;
@@ -162,6 +161,13 @@ export interface ClientProjectUpload {
   client_name?: string | null;
   client_company_name?: string | null;
   task_count?: number;
+}
+
+export interface HrCompanyFile {
+  file_id: string;
+  original_name: string;
+  file_size: number | string;
+  created_at: string;
 }
 
 export type TaskStatus = "todo" | "in_progress" | "review" | "done";

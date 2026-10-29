@@ -1,7 +1,4 @@
 import axios from "axios";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { pool } from "../lib/db.js";
 
 const PATHWAY_URL = (process.env.PATHWAY_URL || "http://localhost:8000").replace(
@@ -21,33 +18,20 @@ const PATHWAY_TIMEOUT_MS = Number.parseInt(
   10
 );
 const TICKET_TIME_ZONE = "Asia/Kolkata";
-const CONTROLLER_DIR = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_UPLOADS_DIR = path.resolve(CONTROLLER_DIR, "../../uploads");
-const PATHWAY_CLIENT_DIR = path.resolve(
-  CONTROLLER_DIR,
-  "../../../../rag_model/pathway/client",
-);
-const PATHWAY_DATA_DIR = path.resolve(
-  CONTROLLER_DIR,
-  "../../../../rag_model/pathway/data",
-);
 
 const PATHWAY_ENDPOINTS = [
   {
-    path: "/v1/pw_ai_answer",
-    buildPayload: (prompt, options) => ({
-      prompt,
-      return_context_docs: options.returnContextDocs ?? true,
-    }),
-  },
-  {
     path: "/v2/answer",
-    buildPayload: (prompt, options) => ({
-      prompt,
-      filters: options.filters ?? null,
-      model: options.model ?? null,
-      return_context_docs: options.returnContextDocs ?? true,
-    }),
+    buildPayload: (prompt, options) => {
+      const payload = {
+        prompt,
+        filters: options.filters ?? null,
+        return_context_docs: options.returnContextDocs ?? true,
+      };
+      // Omit model when unset so Pathway uses the model configured in its YAML.
+      if (options.model) payload.model = options.model;
+      return payload;
+    },
   },
 ];
 
@@ -88,13 +72,6 @@ const pickArray = (value) => (Array.isArray(value) ? value : []);
 const pickFirstString = (values) =>
   values.find((value) => typeof value === "string" && value.trim().length > 0) ||
   "";
-
-const toPublicPath = (segments) =>
-  segments
-    .split("/")
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
 
 const getEntryMetadata = (entry) =>
   entry &&
@@ -143,144 +120,6 @@ const getSourceText = (entry) => {
   ]);
 };
 
-const resolveRelativePublicPath = (normalizedPath, fromDir, publicBasePath) => {
-  const candidate = path.resolve(normalizedPath);
-  if (!fs.existsSync(candidate)) {
-    return "";
-  }
-
-  const relativePath = path.relative(fromDir, candidate).replace(/\\/g, "/");
-  if (
-    !relativePath ||
-    relativePath.startsWith("..") ||
-    path.isAbsolute(relativePath)
-  ) {
-    return "";
-  }
-
-  return `${publicBasePath}/${toPublicPath(relativePath)}`;
-};
-
-const resolvePublicDocumentUrl = (sourcePath) => {
-  if (typeof sourcePath !== "string" || !sourcePath.trim()) {
-    return "";
-  }
-
-  const normalizedPath = sourcePath.replace(/\\/g, "/").trim();
-  if (!/\.pdf(?:$|[?#])/i.test(normalizedPath)) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(normalizedPath)) {
-    return normalizedPath;
-  }
-
-  if (normalizedPath.startsWith("/uploads/")) {
-    return `/uploads/${toPublicPath(normalizedPath.slice("/uploads/".length))}`;
-  }
-
-  if (normalizedPath.startsWith("uploads/")) {
-    return `/uploads/${toPublicPath(normalizedPath.slice("uploads/".length))}`;
-  }
-
-  if (normalizedPath.startsWith("/assistant-documents/")) {
-    return `/assistant-documents/${toPublicPath(
-      normalizedPath.slice("/assistant-documents/".length),
-    )}`;
-  }
-
-  if (normalizedPath.startsWith("assistant-documents/")) {
-    return `/assistant-documents/${toPublicPath(
-      normalizedPath.slice("assistant-documents/".length),
-    )}`;
-  }
-
-  if (normalizedPath.startsWith("client/")) {
-    return `/assistant-documents/${toPublicPath(
-      normalizedPath.slice("client/".length),
-    )}`;
-  }
-
-  if (normalizedPath.startsWith("data/")) {
-    return `/assistant-data/${toPublicPath(
-      normalizedPath.slice("data/".length),
-    )}`;
-  }
-
-  const uploadsMarker = "/uploads/";
-  const uploadsIndex = normalizedPath.lastIndexOf(uploadsMarker);
-  if (uploadsIndex >= 0) {
-    return `/uploads/${toPublicPath(
-      normalizedPath.slice(uploadsIndex + uploadsMarker.length),
-    )}`;
-  }
-
-  const pathwayMarker = "/rag_model/pathway/client/";
-  const pathwayIndex = normalizedPath.lastIndexOf(pathwayMarker);
-  if (pathwayIndex >= 0) {
-    return `/assistant-documents/${toPublicPath(
-      normalizedPath.slice(pathwayIndex + pathwayMarker.length),
-    )}`;
-  }
-
-  const uploadAbsoluteMatch = resolveRelativePublicPath(
-    normalizedPath,
-    BACKEND_UPLOADS_DIR,
-    "/uploads",
-  );
-  if (uploadAbsoluteMatch) {
-    return uploadAbsoluteMatch;
-  }
-
-  const pathwayAbsoluteMatch = resolveRelativePublicPath(
-    normalizedPath,
-    PATHWAY_CLIENT_DIR,
-    "/assistant-documents",
-  );
-  if (pathwayAbsoluteMatch) {
-    return pathwayAbsoluteMatch;
-  }
-
-  const pathwayDataAbsoluteMatch = resolveRelativePublicPath(
-    normalizedPath,
-    PATHWAY_DATA_DIR,
-    "/assistant-data",
-  );
-  if (pathwayDataAbsoluteMatch) {
-    return pathwayDataAbsoluteMatch;
-  }
-
-  const basename = path.posix.basename(normalizedPath);
-  if (!basename) {
-    return "";
-  }
-
-  if (fs.existsSync(path.join(BACKEND_UPLOADS_DIR, basename))) {
-    return `/uploads/${encodeURIComponent(basename)}`;
-  }
-
-  if (fs.existsSync(path.join(PATHWAY_CLIENT_DIR, basename))) {
-    return `/assistant-documents/${encodeURIComponent(basename)}`;
-  }
-
-  if (fs.existsSync(path.join(PATHWAY_DATA_DIR, basename))) {
-    return `/assistant-data/${encodeURIComponent(basename)}`;
-  }
-
-  return "";
-};
-
-const normalizeStoredContextDocs = (contextDocs) =>
-  pickArray(contextDocs)
-    .filter((entry) => entry && typeof entry === "object")
-    .map((entry) => ({
-      ...entry,
-      preview_url:
-        typeof entry.preview_url === "string" && entry.preview_url.trim()
-          ? entry.preview_url
-          : resolvePublicDocumentUrl(entry.path),
-    }));
-
 const extractSourceBuckets = (payload) => {
   if (!payload || typeof payload !== "object") {
     return {
@@ -295,6 +134,120 @@ const extractSourceBuckets = (payload) => {
     docs: pickArray(payload.docs),
     sources: pickArray(payload.sources),
   };
+};
+
+const getAuthorizedAssistantDocuments = async (user) => {
+  if (user.role === "client") {
+    const { rows } = await pool.query(
+      `SELECT u.upload_id, u.client_id, u.hr_id, u.file_path, u.stored_name, u.original_name
+       FROM client_project_uploads u
+       WHERE u.client_id = $1
+         AND u.file_path LIKE '%/clients/' || u.client_id::text || '/hrs/' || u.hr_id::text || '/' || u.upload_id::text || '/%'`,
+      [user.client_id],
+    );
+    return rows;
+  }
+  if (user.role === "hr") {
+    const { rows: projectFiles } = await pool.query(
+      `SELECT u.upload_id, u.client_id, u.hr_id, u.file_path, u.stored_name, u.original_name
+       FROM client_project_uploads u
+       JOIN client_hr_connections conn
+         ON conn.client_id = u.client_id AND conn.hr_id = u.hr_id
+        AND conn.status = 'connected'
+       WHERE u.hr_id = $1
+         AND u.file_path LIKE '%/clients/' || u.client_id::text || '/hrs/' || u.hr_id::text || '/' || u.upload_id::text || '/%'`,
+      [user.hr_id],
+    );
+    const { rows: companyFiles } = await pool.query(
+      `SELECT file_id, hr_id, file_path, stored_name, original_name
+       FROM hr_company_files
+       WHERE hr_id = $1
+         AND file_path LIKE '%/hr-companies/' || hr_id::text || '/' || file_id::text || '/%'`,
+      [user.hr_id],
+    );
+    return [
+      ...projectFiles.map((document) => ({ ...document, source_type: "project" })),
+      ...companyFiles.map((document) => ({
+        ...document,
+        upload_id: document.file_id,
+        client_id: null,
+        source_type: "company",
+      })),
+    ];
+  }
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.upload_id, u.client_id, u.hr_id, u.file_path, u.stored_name, u.original_name
+     FROM project_tasks t
+     JOIN client_project_uploads u ON u.upload_id = t.upload_id
+     WHERE t.assignee_emp_id = $1
+       AND u.file_path LIKE '%/clients/' || u.client_id::text || '/hrs/' || u.hr_id::text || '/' || u.upload_id::text || '/%'`,
+    [user.emp_id],
+  );
+  return rows;
+};
+
+const getScopedPathwayFilter = (documents) => {
+  if (!documents.length) return null;
+  return documents.map((document) => {
+    const ids = document.source_type === "company"
+      ? [document.hr_id, document.file_id]
+      : [document.client_id, document.hr_id, document.upload_id];
+    return ids
+      .map((id) => 'contains(path, `' + '"' + id + '"' + '`)')
+      .join(" && ");
+  }).join(" || ");
+};
+
+const findAuthorizedDocument = (entry, documents) => {
+  const source = getSourcePath(entry).replace(/\\/g, "/");
+  const routeId = source.match(/\/(?:project-files|company-files)\/([0-9a-f-]{36})/i)?.[1];
+  if (routeId) return documents.find((document) => document.upload_id === routeId);
+  const basename = source.split("/").pop();
+  return documents.find(
+    (document) => document.stored_name === basename && (
+      document.source_type === "company"
+        ? source.includes(`/hr-companies/${document.hr_id}/${document.file_id}/`)
+        : source.includes(`/clients/${document.client_id}/hrs/${document.hr_id}/${document.upload_id}/`)
+    ),
+  );
+};
+
+const filterPathwayResponse = (payload, documents) => {
+  const buckets = extractSourceBuckets(payload);
+  const originalEntries = [...buckets.context_docs, ...buckets.docs, ...buckets.sources];
+  const allowedEntries = originalEntries
+    .filter((entry) => findAuthorizedDocument(entry, documents));
+  const safeContext = allowedEntries.map((entry) => {
+    const document = findAuthorizedDocument(entry, documents);
+    return {
+      text: getSourceText(entry),
+      name: document.original_name,
+      path: document.source_type === "company"
+        ? `/api/v1/company-files/${document.file_id}/${document.original_name.toLowerCase().endsWith(".pdf") ? "view" : "download"}`
+        : `/api/v1/project-files/${document.upload_id}`,
+      ...(document.source_type === "company" && !document.original_name.toLowerCase().endsWith(".pdf")
+        ? {}
+        : {
+            preview_url: document.source_type === "company"
+              ? `/api/v1/company-files/${document.file_id}/view`
+              : `/api/v1/project-files/${document.upload_id}`,
+          }),
+    };
+  });
+  const result = {
+    ...payload,
+    context_docs: safeContext,
+    docs: [],
+    sources: [],
+  };
+  if (
+    (documents.length && (!originalEntries.length || safeContext.length !== originalEntries.length)) ||
+    (!documents.length && originalEntries.length > 0)
+  ) {
+    result.response = "I could not verify an authorized project source for this answer, so I have withheld it.";
+    result.answer = result.response;
+  }
+  return result;
 };
 
 const getAssistantOwner = (user) => {
@@ -456,30 +409,13 @@ const buildDashboardSummaryPrompt = (tasks) => {
   ].join("\n");
 };
 
-const extractEvidence = (payload) => {
-  const buckets = extractSourceBuckets(payload);
-
-  return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
-    .map((entry) => getSourcePath(entry) || null)
+const extractEvidence = (payload) =>
+  pickArray(payload?.context_docs)
+    .map((entry) => entry?.path)
     .filter(Boolean)
     .slice(0, 10);
-};
 
-const normalizeContextDocs = (payload) => {
-  const buckets = extractSourceBuckets(payload);
-
-  return [...buckets.context_docs, ...buckets.docs, ...buckets.sources]
-    .filter((entry) => entry && typeof entry === "object")
-    .map((entry) => {
-      return {
-        text: getSourceText(entry),
-        path: getSourcePath(entry),
-        preview_url: resolvePublicDocumentUrl(getSourcePath(entry)),
-      };
-    })
-    .filter((entry) => entry.text || entry.path)
-    .slice(0, 10);
-};
+const normalizeContextDocs = (payload) => pickArray(payload?.context_docs).slice(0, 10);
 
 const mapThreadRow = (row) => ({
   id: row.thread_id,
@@ -489,7 +425,7 @@ const mapThreadRow = (row) => ({
   updatedAt: row.updated_at,
 });
 
-const mapQuestionRowsToMessages = (rows) =>
+const mapQuestionRowsToMessages = (rows, authorizedDocuments) =>
   rows.flatMap((row) => {
     const messages = [
       {
@@ -504,23 +440,52 @@ const mapQuestionRowsToMessages = (rows) =>
       return messages;
     }
 
+    const storedContext = pickArray(row.context_docs);
+    const authorizedContext = storedContext
+      .filter((entry) => findAuthorizedDocument(entry, authorizedDocuments))
+      .map((entry) => {
+        const document = findAuthorizedDocument(entry, authorizedDocuments);
+        return {
+          ...entry,
+          name: document.original_name,
+          path: document.source_type === "company"
+            ? `/api/v1/company-files/${document.file_id}/${document.original_name.toLowerCase().endsWith(".pdf") ? "view" : "download"}`
+            : `/api/v1/project-files/${document.upload_id}`,
+          ...(document.source_type === "company" && !document.original_name.toLowerCase().endsWith(".pdf")
+            ? { preview_url: undefined }
+            : {
+                preview_url: document.source_type === "company"
+                  ? `/api/v1/company-files/${document.file_id}/view`
+                  : `/api/v1/project-files/${document.upload_id}`,
+              }),
+        };
+      });
+    const hasVerifiedSources =
+      storedContext.length > 0 && authorizedContext.length === storedContext.length;
+    const safeNoDocumentAnswer = [
+      "No project documents are currently available to your account.",
+      "No documents are currently available to your account.",
+    ].includes(row.response);
+    const hideUnverifiedAnswer = !hasVerifiedSources && !safeNoDocumentAnswer;
     messages.push({
       id: `${row.question_id}:assistant`,
       role: "assistant",
       content:
         row.status === "error"
           ? row.error_message || "Failed to reach the assistant"
-          : row.response || "No response received from the assistant.",
+          : !hideUnverifiedAnswer
+            ? row.response || "No response received from the assistant."
+            : "This earlier response is hidden because its document access could not be verified.",
       createdAt: row.updated_at,
-      sources: Array.isArray(row.evidence) ? row.evidence : [],
-      contextDocs: normalizeStoredContextDocs(row.context_docs),
-      error: row.status === "error",
+      sources: authorizedContext.map((entry) => entry.path),
+      contextDocs: authorizedContext,
+      error: row.status === "error" || hideUnverifiedAnswer,
     });
 
     return messages;
   });
 
-const buildThreadsFromRows = (threadRows, questionRows) => {
+const buildThreadsFromRows = (threadRows, questionRows, authorizedDocuments) => {
   const threadsById = new Map(
     threadRows.map((row) => [row.thread_id, mapThreadRow(row)]),
   );
@@ -529,7 +494,7 @@ const buildThreadsFromRows = (threadRows, questionRows) => {
     const thread = threadsById.get(row.thread_id);
     if (!thread) continue;
 
-    thread.messages.push(...mapQuestionRowsToMessages([row]));
+    thread.messages.push(...mapQuestionRowsToMessages([row], authorizedDocuments));
   }
 
   return [...threadsById.values()];
@@ -594,7 +559,7 @@ export const getAssistantThreads = async (req, res) => {
   const owner = getAssistantOwner(req.user);
 
   try {
-    const [threadResult, questionResult] = await Promise.all([
+    const [threadResult, questionResult, authorizedDocuments] = await Promise.all([
       pool.query(
         `SELECT thread_id, title, created_at, updated_at
         FROM assistant_threads
@@ -621,10 +586,11 @@ export const getAssistantThreads = async (req, res) => {
         ORDER BY q.created_at ASC`,
         [owner.userRole, owner.userId],
       ),
+      getAuthorizedAssistantDocuments(req.user),
     ]);
 
     return res.status(200).json({
-      threads: buildThreadsFromRows(threadResult.rows, questionResult.rows),
+      threads: buildThreadsFromRows(threadResult.rows, questionResult.rows, authorizedDocuments),
     });
   } catch (error) {
     console.error("Error in getAssistantThreads:", error.message);
@@ -700,12 +666,21 @@ export const askAssistant = async (req, res) => {
       [thread.id],
     );
 
-    const rawData = await requestPathwayAnswer(buildPathwayPrompt(prompt, mode), {
-      filters: req.body?.filters,
-      model: req.body?.model,
-      returnContextDocs: req.body?.returnContextDocs,
-      mode,
-    });
+    const authorizedDocuments = await getAuthorizedAssistantDocuments(req.user);
+    const pathwayData = authorizedDocuments.length
+      ? await requestPathwayAnswer(buildPathwayPrompt(prompt, mode), {
+          filters: getScopedPathwayFilter(authorizedDocuments),
+          returnContextDocs: true,
+          mode,
+        })
+      : {
+          response: "No documents are currently available to your account.",
+          context_docs: [],
+        };
+    const verifiedDocuments = authorizedDocuments.length
+      ? await getAuthorizedAssistantDocuments(req.user)
+      : [];
+    const rawData = filterPathwayResponse(pathwayData, verifiedDocuments);
     const answer = extractAnswer(rawData) || "No response received from the assistant.";
     const sourceBuckets = extractSourceBuckets(rawData);
     const evidence = extractEvidence(rawData);
@@ -795,17 +770,39 @@ export const askAssistant = async (req, res) => {
 
 export const getAssistantDashboardSummary = async (req, res) => {
   try {
-    const rawData = await requestPathwayAnswer(
-      buildDashboardSummaryPrompt(req.body?.tasks),
-      {
-        mode: "dashboard",
-        returnContextDocs: false,
-      },
-    );
-
-    const summary =
-      extractAnswer(rawData) ||
-      "No tasks are available yet, so there is no delivery summary to share.";
+    const taskQuery = req.user.role === "hr"
+      ? `SELECT t.title, t.status FROM project_tasks t
+         WHERE t.hr_id = $1 AND EXISTS (
+           SELECT 1 FROM client_hr_connections conn
+           WHERE conn.client_id = t.client_id AND conn.hr_id = t.hr_id
+             AND conn.status = 'connected'
+         ) ORDER BY t.updated_at DESC LIMIT 50`
+      : req.user.role === "employee"
+        ? `SELECT title, status FROM project_tasks WHERE assignee_emp_id = $1 ORDER BY updated_at DESC LIMIT 50`
+        : `SELECT title, status FROM project_tasks WHERE client_id = $1 ORDER BY updated_at DESC LIMIT 50`;
+    const taskId = req.user.hr_id || req.user.emp_id || req.user.client_id;
+    const { rows } = await pool.query(taskQuery, [taskId]);
+    const documents = await getAuthorizedAssistantDocuments(req.user);
+    let summary = "No tasks are available yet, so there is no delivery summary to share.";
+    if (rows.length) {
+      if (documents.length) {
+        const pathwayData = await requestPathwayAnswer(buildDashboardSummaryPrompt(rows), {
+            mode: "dashboard",
+            filters: getScopedPathwayFilter(documents),
+            returnContextDocs: true,
+          });
+        const verifiedDocuments = await getAuthorizedAssistantDocuments(req.user);
+        const rawData = filterPathwayResponse(pathwayData, verifiedDocuments);
+        const generatedSummary = extractAnswer(rawData);
+        if (generatedSummary && !generatedSummary.includes("withheld")) {
+          summary = generatedSummary;
+        } else {
+          summary = buildLocalDashboardSummary(rows);
+        }
+      } else {
+        summary = buildLocalDashboardSummary(rows);
+      }
+    }
 
     return res.status(200).json({ summary });
   } catch (error) {
@@ -826,6 +823,15 @@ export const getAssistantDashboardSummary = async (req, res) => {
 
     return res.status(502).json({ message });
   }
+};
+
+const buildLocalDashboardSummary = (tasks) => {
+  const completed = tasks.filter((task) => task.status === "done");
+  const remaining = tasks.filter((task) => task.status !== "done");
+  const highlights = (remaining.length ? remaining : completed)
+    .slice(0, 2)
+    .map((task) => task.title);
+  return `${completed.length} completed and ${remaining.length} remaining tasks.${highlights.length ? ` Current focus: ${highlights.join("; ")}.` : ""}`;
 };
 
 export const deleteAssistantThread = async (req, res) => {
@@ -869,11 +875,8 @@ export const clearAssistantThreads = async (req, res) => {
 
 export const getAssistantStatistics = async (_req, res) => {
   try {
-    const response = await axios.get(`${PATHWAY_URL}/v1/statistics`, {
-      timeout: 10000,
-    });
-
-    return res.status(200).json(response.data);
+    const documents = await getAuthorizedAssistantDocuments(_req.user);
+    return res.status(200).json({ file_count: documents.length });
   } catch (error) {
     console.error("Error in getAssistantStatistics:", error.message);
 
